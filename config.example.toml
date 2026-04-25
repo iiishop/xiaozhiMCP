@@ -1,0 +1,10 @@
+[xiaozhi]
+endpoint = "wss://api.xiaozhi.me/mcp/?token=replace_with_your_token"
+server_script = "app_server.py"
+
+[exa]
+api_key = "replace_with_your_exa_api_key"
+base_url = "https://api.exa.ai"
+
+[schedule]
+db_path = ""
