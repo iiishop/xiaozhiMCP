@@ -92,6 +92,8 @@ It returns compact JSON to fit Xiaozhi payload constraints.
 - `schedule_update_status(event_id: int, status: str)`
 - `schedule_delete_event(event_id: int)`
 - `schedule_find_free_slots(range_start: str, range_end: str, min_minutes: int = 30)`
+- `clipboard_set(content: str, content_html: str = "")`
+- `clipboard_get()`
 
 Schedule types:
 

@@ -5,7 +5,7 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from components import ExaSearchComponent, LocalScheduleComponent
+from components import ClipboardComponent, ExaSearchComponent, LocalScheduleComponent
 from config_loader import get_nested_str, load_config
 
 
@@ -32,6 +32,7 @@ def build_server(config_path: str) -> FastMCP:
         LocalScheduleComponent(
             db_path=get_nested_str(config, "schedule", "db_path") or None,
         ),
+        ClipboardComponent(),
     ]
 
     for component in components:
