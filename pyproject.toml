@@ -20,6 +20,8 @@ build-backend = "hatchling.build"
 only-include = [
   "mcp_router.py",
   "app_server.py",
+  "cluster.py",
+  "runtime.py",
   "config_loader.py",
   "components",
 ]
@@ -28,6 +30,8 @@ only-include = [
 include = [
   "mcp_router.py",
   "app_server.py",
+  "cluster.py",
+  "runtime.py",
   "config_loader.py",
   "components/**/*.py",
   "README.md",

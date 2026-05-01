@@ -233,3 +233,97 @@ class ExaSearchComponent(MCPComponent):
             except Exception as exc:  # noqa: BLE001
                 logger.exception("exa_web_search failed")
                 return {"success": False, "error": str(exc)}
+
+    def export_tools(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "exa_web_search",
+                "description": "Search web with Exa. Supports search type and content mode.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "keywords": {"type": "string"},
+                        "num_results": {"type": "integer"},
+                        "search_type": {"type": "string"},
+                        "content_mode": {"type": "string"},
+                    },
+                    "required": ["keywords"],
+                },
+            }
+        ]
+
+    def invoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
+        if tool_name != "exa_web_search":
+            raise RuntimeError(f"unknown tool: {tool_name}")
+
+        # Reuse the same logic as MCP tool implementation by calling HTTP workflow directly.
+        keywords = str(arguments.get("keywords", ""))
+        num_results = int(arguments.get("num_results", 5))
+        search_type = str(arguments.get("search_type", "auto"))
+        content_mode = str(arguments.get("content_mode", "highlights"))
+        max_characters = int(arguments.get("max_characters", 1400))
+        max_age_hours = arguments.get("max_age_hours")
+        include_domains_csv = str(arguments.get("include_domains_csv", ""))
+        exclude_domains_csv = str(arguments.get("exclude_domains_csv", ""))
+        category = str(arguments.get("category", ""))
+        summary_query = str(arguments.get("summary_query", ""))
+        output_schema_json = str(arguments.get("output_schema_json", ""))
+        system_prompt = str(arguments.get("system_prompt", ""))
+
+        if not self.api_key:
+            return {"success": False, "error": "EXA_API_KEY is missing. Set env var EXA_API_KEY first."}
+
+        try:
+            payload = build_search_payload(
+                keywords=keywords,
+                num_results=num_results,
+                search_type=search_type,
+                content_mode=content_mode,
+                max_characters=max_characters,
+                max_age_hours=max_age_hours,
+                include_domains_csv=include_domains_csv,
+                exclude_domains_csv=exclude_domains_csv,
+                category=category,
+                system_prompt=system_prompt,
+                output_schema_json=output_schema_json,
+                summary_query=summary_query,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": f"Invalid search parameters: {exc}"}
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": self.api_key,
+        }
+        try:
+            resp = requests.post(
+                f"{self.base_url}/search",
+                json=payload,
+                headers=headers,
+                timeout=20,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            mode = _normalize_content_mode(content_mode)
+            rows = data.get("results", [])[:5]
+            output_rows = []
+            for row in rows:
+                snippet = _extract_snippet(row, mode)
+                output_rows.append(
+                    {
+                        "title": _trim_text(row.get("title", ""), 120),
+                        "url": row.get("url", ""),
+                        "publishedDate": row.get("publishedDate", ""),
+                        "snippet": _trim_text(snippet, 220),
+                    }
+                )
+            output: dict[str, Any] = {
+                "success": True,
+                "query": keywords,
+                "searchType": data.get("searchType", payload.get("type", "auto")),
+                "count": len(output_rows),
+                "results": output_rows,
+            }
+            return output
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc)}

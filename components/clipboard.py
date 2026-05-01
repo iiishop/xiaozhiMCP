@@ -81,6 +81,39 @@ def get_windows_clipboard_text() -> str:
 
 
 class ClipboardComponent(MCPComponent):
+    def export_tools(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "clipboard_set",
+                "description": "Copy content to Windows clipboard. Optional HTML keeps rich text style.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string"},
+                        "content_html": {"type": "string"},
+                    },
+                    "required": ["content"],
+                },
+            },
+            {
+                "name": "clipboard_get",
+                "description": "Read current Windows clipboard text content.",
+                "input_schema": {"type": "object", "properties": {}},
+            },
+        ]
+
+    def invoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
+        if tool_name == "clipboard_set":
+            set_windows_clipboard_text(
+                str(arguments.get("content", "")),
+                str(arguments.get("content_html", "")),
+            )
+            return {"ok": True}
+        if tool_name == "clipboard_get":
+            content = get_windows_clipboard_text()
+            return {"content": content, "length": len(content)}
+        raise RuntimeError(f"unknown tool: {tool_name}")
+
     def register(self, mcp: Any) -> None:
         @mcp.tool()
         def clipboard_set(content: str, content_html: str = "") -> dict:

@@ -442,3 +442,152 @@ class LocalScheduleComponent(MCPComponent):
                 return {"success": True, "count": len(slots), "free_slots": slots}
             except Exception as exc:  # noqa: BLE001
                 return {"success": False, "error": str(exc)}
+
+    def export_tools(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "schedule_list_events",
+                "description": "List local schedule events with optional time range filter.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "start_time": {"type": "string"},
+                        "end_time": {"type": "string"},
+                    },
+                },
+            },
+            {
+                "name": "schedule_add_event",
+                "description": "Add local schedule event, range or deadline type.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string"},
+                        "schedule_type": {"type": "string"},
+                        "start_time": {"type": "string"},
+                        "end_time": {"type": "string"},
+                        "due_time": {"type": "string"},
+                        "status": {"type": "string"},
+                        "description": {"type": "string"},
+                    },
+                    "required": ["title"],
+                },
+            },
+            {
+                "name": "schedule_update_event",
+                "description": "Update event title/type/time fields by event_id.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "event_id": {"type": "integer"},
+                        "title": {"type": "string"},
+                        "schedule_type": {"type": "string"},
+                        "start_time": {"type": "string"},
+                        "end_time": {"type": "string"},
+                        "due_time": {"type": "string"},
+                    },
+                    "required": ["event_id"],
+                },
+            },
+            {
+                "name": "schedule_update_status",
+                "description": "Update event status by event_id.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "event_id": {"type": "integer"},
+                        "status": {"type": "string"},
+                    },
+                    "required": ["event_id", "status"],
+                },
+            },
+            {
+                "name": "schedule_delete_event",
+                "description": "Delete local schedule event by event_id.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"event_id": {"type": "integer"}},
+                    "required": ["event_id"],
+                },
+            },
+            {
+                "name": "schedule_find_free_slots",
+                "description": "Find free slots between range_start and range_end.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "range_start": {"type": "string"},
+                        "range_end": {"type": "string"},
+                        "min_minutes": {"type": "integer"},
+                    },
+                    "required": ["range_start", "range_end"],
+                },
+            },
+        ]
+
+    def invoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
+        if tool_name == "schedule_list_events":
+            events = self.store.list_events(
+                start_time=str(arguments.get("start_time", "")),
+                end_time=str(arguments.get("end_time", "")),
+            )
+            return {"success": True, "count": len(events), "events": events}
+
+        if tool_name == "schedule_add_event":
+            try:
+                event = self.store.add_event(
+                    title=str(arguments.get("title", "")),
+                    schedule_type=str(arguments.get("schedule_type", "range")),
+                    start_time=str(arguments.get("start_time", "")),
+                    end_time=str(arguments.get("end_time", "")),
+                    due_time=str(arguments.get("due_time", "")),
+                    status=str(arguments.get("status", "未开始")),
+                    description=str(arguments.get("description", "")),
+                )
+                return {"success": True, "event": event}
+            except Exception as exc:  # noqa: BLE001
+                return {"success": False, "error": str(exc)}
+
+        if tool_name == "schedule_update_event":
+            event_id = int(arguments.get("event_id", 0))
+            try:
+                result = self.store.update_event(
+                    event_id=event_id,
+                    title=str(arguments.get("title", "")),
+                    schedule_type=str(arguments.get("schedule_type", "")),
+                    start_time=str(arguments.get("start_time", "")),
+                    end_time=str(arguments.get("end_time", "")),
+                    due_time=str(arguments.get("due_time", "")),
+                )
+                return {"success": True, **result}
+            except Exception as exc:  # noqa: BLE001
+                return {"success": False, "error": str(exc), "event_id": event_id}
+
+        if tool_name == "schedule_update_status":
+            event_id = int(arguments.get("event_id", 0))
+            try:
+                result = self.store.update_event_status(
+                    event_id=event_id,
+                    status=str(arguments.get("status", "")),
+                )
+                return {"success": True, **result}
+            except Exception as exc:  # noqa: BLE001
+                return {"success": False, "error": str(exc), "event_id": event_id}
+
+        if tool_name == "schedule_delete_event":
+            event_id = int(arguments.get("event_id", 0))
+            deleted = self.store.delete_event(event_id)
+            return {"success": True, "deleted": deleted, "event_id": event_id}
+
+        if tool_name == "schedule_find_free_slots":
+            try:
+                slots = self.store.find_free_slots(
+                    range_start=str(arguments.get("range_start", "")),
+                    range_end=str(arguments.get("range_end", "")),
+                    min_minutes=int(arguments.get("min_minutes", 30)),
+                )
+                return {"success": True, "count": len(slots), "free_slots": slots}
+            except Exception as exc:  # noqa: BLE001
+                return {"success": False, "error": str(exc)}
+
+        raise RuntimeError(f"unknown tool: {tool_name}")
