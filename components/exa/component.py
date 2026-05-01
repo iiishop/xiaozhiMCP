@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from .base import MCPComponent
+from ..base import MCPComponent
 
 logger = logging.getLogger("exa_component")
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import MCPComponent
+from ..base import MCPComponent
 
 
 def build_cf_html_payload(fragment_html: str) -> bytes:

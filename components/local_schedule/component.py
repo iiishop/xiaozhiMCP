@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .base import MCPComponent
+from ..base import MCPComponent
 
 VALID_STATUSES = {"未开始", "进行中", "已完成"}
 

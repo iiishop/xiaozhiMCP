@@ -73,10 +73,10 @@ class PerformanceMergeTests(unittest.TestCase):
 
 
 class FocusWindowTests(unittest.TestCase):
-    @patch("components.windows_manager.win32gui.GetForegroundWindow")
-    @patch("components.windows_manager.win32gui.SetForegroundWindow")
-    @patch("components.windows_manager.win32gui.BringWindowToTop")
-    @patch("components.windows_manager.win32gui.ShowWindow")
+    @patch("components.windows_manager.component.win32gui.GetForegroundWindow")
+    @patch("components.windows_manager.component.win32gui.SetForegroundWindow")
+    @patch("components.windows_manager.component.win32gui.BringWindowToTop")
+    @patch("components.windows_manager.component.win32gui.ShowWindow")
     def test_focus_window_direct_success(
         self,
         _show: object,
@@ -89,10 +89,10 @@ class FocusWindowTests(unittest.TestCase):
         self.assertTrue(out["activated"])
         self.assertEqual(out["strategy"], "direct")
 
-    @patch("components.windows_manager.win32gui.GetForegroundWindow")
-    @patch("components.windows_manager.win32gui.SetForegroundWindow")
-    @patch("components.windows_manager.win32gui.BringWindowToTop")
-    @patch("components.windows_manager.win32gui.ShowWindow")
+    @patch("components.windows_manager.component.win32gui.GetForegroundWindow")
+    @patch("components.windows_manager.component.win32gui.SetForegroundWindow")
+    @patch("components.windows_manager.component.win32gui.BringWindowToTop")
+    @patch("components.windows_manager.component.win32gui.ShowWindow")
     def test_focus_window_reports_failure(
         self,
         _show: object,

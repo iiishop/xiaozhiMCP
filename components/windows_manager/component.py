@@ -9,7 +9,7 @@ import win32con
 import win32gui
 import win32process
 
-from .base import MCPComponent
+from ..base import MCPComponent
 
 
 def normalize_windows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
