@@ -37,3 +37,6 @@ config.toml
 
 # User-provided MCP components
 user_components/
+
+# Local runtime databases
+components/local_schedule/*.sqlite3
