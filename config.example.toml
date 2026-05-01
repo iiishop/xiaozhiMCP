@@ -8,3 +8,17 @@ base_url = "https://api.exa.ai"
 
 [schedule]
 db_path = ""
+
+[components]
+folder = "user_components"
+
+[cluster]
+enabled = false
+listen_host = "0.0.0.0"
+listen_port = 18888
+client_token = "replace_with_shared_client_token"
+
+[client]
+server_url = "ws://your-server-public-ip:18888/agent"
+node_id = "pc-win-01"
+client_token = "replace_with_shared_client_token"

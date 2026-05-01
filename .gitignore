@@ -34,3 +34,6 @@ htmlcov/
 config.toml
 .env
 .env.*
+
+# User-provided MCP components
+user_components/

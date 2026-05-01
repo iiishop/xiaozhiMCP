@@ -1,118 +1,83 @@
-# Xiaozhi MCP Router + Exa Component
+# Xiaozhi MCP Node
 
-This project provides:
+CLI-first MCP adapter for Xiaozhi with two runtime roles:
 
-- A local MCP server (`app_server.py`) with extensible components.
-- An Exa search component (`components/exa.py`).
-- A router (`mcp_router.py`) that bridges Xiaozhi MCP endpoint (WebSocket) and local MCP stdio server.
+- `server`: connects to Xiaozhi endpoint and serves tools
+- `client`: connects to a server over WebSocket and extends server capabilities
 
-## 1) Install dependencies
+Both roles run from the same codebase.
+
+## Install
 
 ```bash
 uv sync
 ```
 
-## 2) Configure endpoint and keys (recommended: config file)
+## Configuration
 
-Create `config.toml` from the example:
+Create config file:
 
 ```bash
 cp config.example.toml config.toml
 ```
 
-Edit `config.toml`:
+Key sections:
 
-```toml
-[xiaozhi]
-endpoint = "wss://api.xiaozhi.me/mcp/?token=..."
-server_script = "app_server.py"
+- `[xiaozhi]`: Xiaozhi endpoint and server script for `mcp_router.py`
+- `[cluster]`: server-side WebSocket listener for client nodes
+- `[client]`: client-side connection settings
+- `[components]`: folder path for user-provided components
 
-[exa]
-api_key = "your_exa_api_key"
-base_url = "https://api.exa.ai"
+`user_components/` is ignored by git by design. Put custom components there.
 
-[schedule]
-db_path = ""
-```
+## Run as Server
 
-If `schedule.db_path` is empty, local schedules are stored in `components/local_schedule.sqlite3`.
-
-## 3) Start router
+Use the existing Xiaozhi router (server role is default):
 
 ```bash
 uv run start --config config.toml
 ```
 
-The router will start local server with the same config file.
-
-Alternative:
+Or directly:
 
 ```bash
-uv run python mcp_router.py --config config.toml
+uv run python app_server.py --role server --config config.toml
 ```
 
-## Optional: environment variables fallback
+## Run as Client
 
-Linux/macOS:
+On Windows/macOS/Linux client node:
 
 ```bash
-export MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=..."
-export EXA_API_KEY="your_exa_api_key"
+uv run python app_server.py --role client --config config.toml
 ```
 
-PowerShell:
+Client will register tools to server using WebSocket (`client.server_url`) and keep reconnecting.
 
-```powershell
-$env:MCP_ENDPOINT="wss://api.xiaozhi.me/mcp/?token=..."
-$env:EXA_API_KEY="your_exa_api_key"
-```
+## Built-in tools (server role)
 
-Use this only if you do not want config files.
-
-## Tool exposed to model
-
-- `exa_web_search(...)` with key parameters:
-  - `keywords`
-  - `num_results` (1-100)
-  - `search_type` (`auto|fast|instant|deep-lite|deep|deep-reasoning`)
-  - `content_mode` (`highlights|text|summary`)
-  - `max_characters`
-  - `max_age_hours` (optional)
-  - `include_domains_csv` / `exclude_domains_csv`
-  - `category`
-  - `summary_query`
-  - `output_schema_json` (optional JSON string)
-  - `system_prompt`
-
-It returns compact JSON to fit Xiaozhi payload constraints.
-
-- `schedule_list_events(start_time: str = "", end_time: str = "")`
-- `schedule_add_event(title: str, schedule_type: str = "range", start_time: str = "", end_time: str = "", due_time: str = "", status: str = "未开始", description: str = "")`
-- `schedule_update_event(event_id: int, title: str = "", schedule_type: str = "", start_time: str = "", end_time: str = "", due_time: str = "")`
-- `schedule_update_status(event_id: int, status: str)`
-- `schedule_delete_event(event_id: int)`
-- `schedule_find_free_slots(range_start: str, range_end: str, min_minutes: int = 30)`
-- `clipboard_set(content: str, content_html: str = "")`
+- `exa_web_search(...)`
+- `schedule_list_events(...)`
+- `schedule_add_event(...)`
+- `schedule_update_event(...)`
+- `schedule_update_status(...)`
+- `schedule_delete_event(...)`
+- `schedule_find_free_slots(...)`
+- `clipboard_set(...)`
 - `clipboard_get()`
+- `windows_list_open_apps()`
+- `windows_find_apps(...)`
+- `windows_focus_app(...)`
+- `windows_close_app(...)`
+- `windows_list_app_performance(...)`
 
-Schedule types:
+## Cluster tools (server role, when `[cluster].enabled=true`)
 
-- `range`: for planned tasks with start/end (e.g. 2026-06-24 09:30 to 2026-06-25 08:00)
-- `deadline`: for point-in-time items (e.g. DDL at 2026-06-24 05:20:49)
-
-Status values:
-
-- `未开始`
-- `进行中`
-- `已完成`
-
-## Extend with more components
-
-1. Add a new file under `components/`, implement `MCPComponent.register`.
-2. Register it in `app_server.py`.
+- `cluster_list_remote_tools()`
+- `cluster_call_remote_tool(tool_name, arguments_json="{}")`
 
 ## Notes
 
-- Use clear tool names and parameter names so the model can infer tool usage.
-- Use logger instead of `print` for debug output.
-- Keep tool return payload short.
+- Tool names must be globally unique across server + clients.
+- `config.toml` is ignored and should hold secrets/tokens.
+- Logs are plain text and intended for CLI deployment.
