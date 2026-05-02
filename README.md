@@ -28,6 +28,8 @@ Key sections:
 - `[client]`: client-side connection settings
 - `[components]`: folder path for user-provided components
 
+`catalog_install_component` installs to the same folder configured by `[components].folder` unless `[catalog].install_folder` is explicitly set.
+
 `user_components/` is ignored by git by design. Put custom components there.
 
 ## Run as Server
@@ -57,19 +59,9 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 ## Built-in tools (server role)
 
 - `exa_web_search(...)`
-- `schedule_list_events(...)`
-- `schedule_add_event(...)`
-- `schedule_update_event(...)`
-- `schedule_update_status(...)`
-- `schedule_delete_event(...)`
-- `schedule_find_free_slots(...)`
-- `clipboard_set(...)`
-- `clipboard_get()`
-- `windows_list_open_apps()`
-- `windows_find_apps(...)`
-- `windows_focus_app(...)`
-- `windows_close_app(...)`
-- `windows_list_app_performance(...)`
+- `catalog_list_components()`
+- `catalog_get_component_readme(component_name)`
+- `catalog_install_component(component_name)`
 
 ## Cluster tools (server role, when `[cluster].enabled=true`)
 

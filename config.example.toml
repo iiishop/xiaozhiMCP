@@ -6,8 +6,10 @@ server_script = "app_server.py"
 api_key = "replace_with_your_exa_api_key"
 base_url = "https://api.exa.ai"
 
-[schedule]
-db_path = ""
+[catalog]
+repo_url = "https://github.com/iiishop/xiaozhiMCP-components.git"
+branch = "main"
+timeout_seconds = 20
 
 [components]
 folder = "user_components"

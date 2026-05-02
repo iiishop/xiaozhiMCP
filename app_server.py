@@ -3,14 +3,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
 from cluster import ClusterClient, ClusterServer
-from components import ClipboardComponent, ExaSearchComponent, LocalScheduleComponent, WindowsManagerComponent
 from config_loader import get_nested_str, load_config
-from runtime import detect_platform, load_user_components
+from runtime import detect_platform, load_components_from_package_folder, load_user_components
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,26 +20,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_builtin_components(config: dict[str, Any]) -> list[Any]:
-    return [
-        ExaSearchComponent(
-            api_key=get_nested_str(config, "exa", "api_key"),
-            base_url=get_nested_str(config, "exa", "base_url"),
-        ),
-        LocalScheduleComponent(
-            db_path=get_nested_str(config, "schedule", "db_path") or None,
-        ),
-        ClipboardComponent(),
-        WindowsManagerComponent(),
-    ]
-
-
 def collect_components(config: dict[str, Any]) -> list[Any]:
-    components = build_builtin_components(config)
+    components = load_components_from_package_folder("components", config)
 
     user_folder = get_nested_str(config, "components", "folder") or "user_components"
-    user_components = load_user_components(user_folder)
-    components.extend(user_components)
+    base_folder = Path("components").resolve()
+    configured_folder = Path(user_folder).resolve()
+    if configured_folder != base_folder:
+        user_components = load_user_components(user_folder, config)
+        components.extend(user_components)
     return components
 
 

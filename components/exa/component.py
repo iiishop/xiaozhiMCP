@@ -327,3 +327,11 @@ class ExaSearchComponent(MCPComponent):
             return output
         except Exception as exc:  # noqa: BLE001
             return {"success": False, "error": str(exc)}
+
+
+def build_component(config: dict[str, Any] | None = None) -> ExaSearchComponent:
+    section = config or {}
+    return ExaSearchComponent(
+        api_key=str(section.get("api_key", "")) if isinstance(section, dict) else None,
+        base_url=str(section.get("base_url", "")) if isinstance(section, dict) else None,
+    )
