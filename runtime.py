@@ -32,13 +32,18 @@ def _load_component_module(path: Path, item: Path) -> Any | None:
         try:
             return importlib.import_module(f"components.{item.name}.component")
         except Exception:
+            # Fallback to direct file loading when components package markers
+            # (__init__.py) are absent on disk.
+            entry = item / "component.py"
+            if entry.exists():
+                return _load_python_module(f"dyn_component_{item.name}", entry)
             return None
 
     if path.name == "components" and item.is_file() and item.suffix == ".py":
         try:
             return importlib.import_module(f"components.{item.stem}")
         except Exception:
-            return None
+            return _load_python_module(f"dyn_component_{item.stem}", item)
 
     # Fallback for external/user folders loaded by file path.
     if item.is_file() and item.suffix == ".py":
