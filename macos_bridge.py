@@ -81,6 +81,8 @@ class StdioMCPBridge:
         self._lock = threading.Lock()
         self._cached_tools: list[dict[str, Any]] | None = None
         self._stderr_thread: threading.Thread | None = None
+        self._protocol = "mcp_headers"
+        self._header_rejected = threading.Event()
 
     def _ensure_started(self) -> None:
         if self._proc and self._proc.poll() is None:
@@ -97,12 +99,46 @@ class StdioMCPBridge:
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         log.info("apple_music bridge: spawned stdio mcp process")
         self._start_stderr_drain()
-        self._request(
-            "initialize",
-            {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "xiaozhi-apple-music-bridge", "version": "0.1.0"}},
-        )
+        self._initialize_with_fallback()
+
+    def _initialize_with_fallback(self) -> None:
+        init_payload = {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "xiaozhi-apple-music-bridge", "version": "0.1.0"},
+        }
+        try:
+            self._request("initialize", init_payload)
+            self._notify("notifications/initialized", {})
+            log.info("apple_music bridge: initialized mcp session protocol=%s", self._protocol)
+            return
+        except Exception as exc:  # noqa: BLE001
+            if not self._header_rejected.is_set():
+                raise
+            log.warning("apple_music bridge: header protocol rejected, retrying jsonl protocol: %s", exc)
+
+        self._restart_process()
+        self._protocol = "jsonl"
+        self._header_rejected.clear()
+        self._start_stderr_drain()
+        self._request("initialize", init_payload)
         self._notify("notifications/initialized", {})
-        log.info("apple_music bridge: initialized mcp session")
+        log.info("apple_music bridge: initialized mcp session protocol=%s", self._protocol)
+
+    def _restart_process(self) -> None:
+        if self._proc is not None:
+            try:
+                self._proc.terminate()
+            except Exception:  # noqa: BLE001
+                pass
+        self._stderr_thread = None
+        cmd = [str(self.config.get("command", "")).strip()]
+        cmd.extend([str(x) for x in (self.config.get("args") or [])])
+        env = os.environ.copy()
+        for k, v in (self.config.get("env") or {}).items():
+            env[str(k)] = str(v)
+        self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        log.info("apple_music bridge: respawned stdio mcp process")
 
     def _notify(self, method: str, params: dict[str, Any]) -> None:
         self._write_message({"jsonrpc": "2.0", "method": method, "params": params})
@@ -127,13 +163,26 @@ class StdioMCPBridge:
         if not self._proc or not self._proc.stdin:
             raise RuntimeError("bridge process not started")
         raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-        header = f"Content-Length: {len(raw)}\r\n\r\n".encode("ascii")
-        self._proc.stdin.write(header + raw)
+        if self._protocol == "jsonl":
+            self._proc.stdin.write(raw + b"\n")
+        else:
+            header = f"Content-Length: {len(raw)}\r\n\r\n".encode("ascii")
+            self._proc.stdin.write(header + raw)
         self._proc.stdin.flush()
 
     def _read_message(self) -> dict[str, Any]:
         if not self._proc or not self._proc.stdout:
             raise RuntimeError("bridge process not started")
+
+        if self._protocol == "jsonl":
+            line = b""
+            while not line.endswith(b"\n"):
+                line += self._read_with_wait(1, "jsonl_line")
+            line = line.strip()
+            if not line:
+                raise RuntimeError("empty jsonl message from bridged mcp")
+            log.info("apple_music bridge: received jsonl message bytes=%d", len(line))
+            return json.loads(line.decode("utf-8"))
 
         headers = b""
         while b"\r\n\r\n" not in headers:
@@ -189,6 +238,8 @@ class StdioMCPBridge:
                 line = raw.decode("utf-8", errors="replace").rstrip()
                 if line:
                     log.info("apple_music bridge stderr: %s", line)
+                if "Invalid JSON" in line and "Content-Length" in line:
+                    self._header_rejected.set()
 
         self._stderr_thread = threading.Thread(target=_drain, name="apple-music-bridge-stderr", daemon=True)
         self._stderr_thread.start()
