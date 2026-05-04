@@ -299,10 +299,10 @@ class StdioMCPBridge:
                     break
             if not raw_name:
                 raise RuntimeError(f"unknown bridged tool: {tool_name}")
-            timeout_seconds = 60.0
+            timeout_seconds = 5.0
             lowered = tool_name.lower()
             if "catalog" in lowered or "library" in lowered or "discover" in lowered:
-                timeout_seconds = 180.0
+                timeout_seconds = 5.0
             started = time.time()
             msg = self._request(
                 "tools/call",
