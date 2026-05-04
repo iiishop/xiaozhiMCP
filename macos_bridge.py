@@ -78,7 +78,7 @@ class StdioMCPBridge:
         self.config = bridge_config
         self._proc: subprocess.Popen[bytes] | None = None
         self._id = 1
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._cached_tools: list[dict[str, Any]] | None = None
         self._stderr_thread: threading.Thread | None = None
         self._protocol = "mcp_headers"
@@ -276,15 +276,20 @@ class StdioMCPBridge:
 
     async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
         with self._lock:
+            log.info("apple_music bridge: invoke start tool=%s", tool_name)
             self._ensure_started()
             raw_name = ""
-            for t in self.export_tools():
+            tools = self._cached_tools or []
+            if not tools:
+                tools = self.export_tools()
+            for t in tools:
                 if t.get("name") == tool_name:
                     raw_name = str(t.get("_raw_name", ""))
                     break
             if not raw_name:
                 raise RuntimeError(f"unknown bridged tool: {tool_name}")
-            msg = self._request("tools/call", {"name": raw_name, "arguments": arguments})
+            msg = self._request("tools/call", {"name": raw_name, "arguments": arguments}, timeout_seconds=60.0)
+            log.info("apple_music bridge: invoke success tool=%s", tool_name)
             return {"success": True, "result": msg.get("result")}
 
     def register(self, _mcp: Any) -> None:
