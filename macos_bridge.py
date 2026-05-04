@@ -55,8 +55,8 @@ def prepare_apple_music_bridge(config: dict[str, Any]) -> dict[str, Any] | None:
     log.info("apple_music bridge: bootstrap complete")
 
     return {
-        "command": str(venv_python),
-        "args": ["-m", "applemusic_mcp"],
+        "command": "uv",
+        "args": ["run", "--directory", str(install_dir), "python", "-m", "applemusic_mcp"],
         "tool_prefix": "apple_music_",
         "env": {},
     }
