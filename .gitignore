@@ -41,8 +41,11 @@ config.toml
 # User-provided MCP components
 user_components/
 
-# Ignore all built-in and downloaded components
-components/
+# Ignore components by default, but keep Apple Music bridge component tracked
+!components/
+components/*
+!components/apple_music_macos/
+!components/apple_music_macos/**
 
 # Local runtime databases
 components/local_schedule/*.sqlite3

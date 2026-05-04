@@ -12,7 +12,7 @@ branch = "main"
 timeout_seconds = 20
 
 [components]
-folder = "user_components"
+folder = "components"
 
 [logmcp]
 db_path = ""
@@ -27,3 +27,12 @@ client_token = "replace_with_shared_client_token"
 server_url = "ws://your-server-public-ip:18888/agent"
 node_id = "pc-win-01"
 client_token = "replace_with_shared_client_token"
+
+[apple_music]
+# Auto-bootstrap Apple Music MCP (macOS client only).
+enabled = true
+repo_url = "https://github.com/epheterson/mcp-applemusic.git"
+branch = "main"
+install_dir = "~/.xiaozhi/applemusic-mcp"
+update_on_startup = true
+tool_prefix = "apple_music_"
