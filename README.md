@@ -68,6 +68,8 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 - `catalog_install_component_to_client(component_name, node_id, mode="client_pull")`
 - `logmcp_get_errors(limit=50)`
 
+Note: catalog is a core server module in `app_server.py` and works even when `components/` is not tracked.
+
 ## Components Repository README Rule
 
 Each MCP folder README in `xiaozhiMCP-components` should end with this exact final line:

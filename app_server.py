@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from catalog_core import CatalogCore
 from cluster import ClusterClient, ClusterServer
 from config_loader import get_nested_str, load_config
 from error_store import ErrorStore
@@ -132,6 +134,67 @@ async def run_server(config_path: str) -> None:
 
                 return await cluster_server.invoke_remote_tool(tool_name, args)
 
+    catalog_repo = get_nested_str(config, "catalog", "repo_url") or "https://github.com/iiishop/xiaozhiMCP-components.git"
+    catalog_branch = get_nested_str(config, "catalog", "branch") or "main"
+    catalog_timeout = int(get_nested_str(config, "catalog", "timeout_seconds") or "20")
+    catalog_install = (get_nested_str(config, "catalog", "install_folder") or get_nested_str(config, "components", "folder") or "components")
+    catalog = CatalogCore(
+        repo_url=catalog_repo,
+        branch=catalog_branch,
+        install_folder=catalog_install,
+        timeout_seconds=catalog_timeout,
+    )
+
+    @mcp.tool()
+    def catalog_list_components() -> dict:
+        """List available components in remote xiaozhiMCP-components repository."""
+        items = catalog.list_components()
+        return {"success": True, "count": len(items), "components": items}
+
+    @mcp.tool()
+    def catalog_search_components(query: str = "", fuzzy: bool = True, readme: bool = False, platform: str = "") -> dict:
+        """Search components by name/description and optional README/platform filters."""
+        return catalog.search_components(query=query, fuzzy=bool(fuzzy), readme=bool(readme), platform=platform)
+
+    @mcp.tool()
+    def catalog_describe_component(component_name: str) -> dict:
+        """Describe a component including summary and platform compatibility."""
+        return catalog.describe_component(component_name)
+
+    @mcp.tool()
+    def catalog_get_component_readme(component_name: str) -> dict:
+        """Get full README text for a component."""
+        return catalog.get_component_readme(component_name)
+
+    @mcp.tool()
+    def catalog_get_component_platforms(component_name: str) -> dict:
+        """Get component platform requirements. Prefer index.json, fallback to README parsing."""
+        return catalog.get_component_platforms(component_name)
+
+    @mcp.tool()
+    def catalog_install_component_to_server(component_name: str) -> dict:
+        """Install component into server components folder."""
+        return catalog.install_component(component_name, install_folder=catalog_install)
+
+    @mcp.tool()
+    async def catalog_install_component_to_client(component_name: str, node_id: str, mode: str = "client_pull") -> dict:
+        """Install component to target client. stage1 supports client_pull; server_push returns not_implemented."""
+        if mode != "client_pull":
+            return {"success": False, "error": "not_implemented", "mode": mode, "message": "server_push is not implemented in stage 1"}
+        if cluster_server is None:
+            return {"success": False, "error": "cluster is not enabled on server"}
+        tool_name = f"agent_install_component__{node_id}"
+        payload = {
+            "component_name": component_name,
+            "node_id": node_id,
+            "repo_url": catalog_repo,
+            "branch": catalog_branch,
+            "install_folder": get_nested_str(config, "components", "folder") or "components",
+            "restart": True,
+        }
+        out = await cluster_server.invoke_remote_tool(tool_name, payload)
+        return {"success": True, "mode": mode, "node_id": node_id, "result": out}
+
     await mcp.run_stdio_async()
 
 
@@ -140,7 +203,49 @@ async def run_client(config_path: str) -> None:
     components = filter_components_by_role(collect_components(config), "client")
     declared_tools, invokers = collect_exported_tools(components)
 
+    # Core client installer endpoint (server invokes this tool).
+    node_id = get_nested_str(config, "client", "node_id")
+    install_folder = get_nested_str(config, "components", "folder") or "components"
+    installer_tool = f"agent_install_component__{node_id}" if node_id else "agent_install_component__unknown"
+    declared_tools.append(
+        {
+            "name": installer_tool,
+            "description": "Client-side installer endpoint for server catalog client_pull mode.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "component_name": {"type": "string"},
+                    "node_id": {"type": "string"},
+                    "repo_url": {"type": "string"},
+                    "branch": {"type": "string"},
+                    "install_folder": {"type": "string"},
+                    "restart": {"type": "boolean"},
+                },
+                "required": ["component_name", "node_id", "repo_url", "branch"],
+            },
+        }
+    )
+
     async def invoker(tool_name: str, args: dict[str, Any]) -> dict:
+        if tool_name == installer_tool:
+            req_node = str(args.get("node_id", ""))
+            if req_node and node_id and req_node != node_id:
+                return {"success": False, "error": f"node_id mismatch: expected {node_id}, got {req_node}"}
+            repo_url = str(args.get("repo_url", "")).strip()
+            branch = str(args.get("branch", "main")).strip() or "main"
+            component_name = str(args.get("component_name", "")).strip()
+            install_to = str(args.get("install_folder", "")).strip() or install_folder
+            core = CatalogCore(repo_url=repo_url, branch=branch, install_folder=install_to)
+            result = core.install_component(component_name, install_folder=install_to)
+            if bool(args.get("restart", False)) and bool(result.get("success", False)):
+                async def _delayed_exit() -> None:
+                    await asyncio.sleep(1)
+                    os._exit(0)
+
+                asyncio.create_task(_delayed_exit())
+                result["restart_scheduled"] = True
+            return result
+
         component = invokers.get(tool_name)
         if component is None:
             raise RuntimeError(f"tool not supported in client: {tool_name}")

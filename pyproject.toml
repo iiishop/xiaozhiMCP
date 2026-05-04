@@ -24,6 +24,7 @@ only-include = [
   "runtime.py",
   "config_loader.py",
   "error_store.py",
+  "catalog_core.py",
   "components",
 ]
 
@@ -35,6 +36,7 @@ include = [
   "runtime.py",
   "config_loader.py",
   "error_store.py",
+  "catalog_core.py",
   "components/**/*.py",
   "README.md",
   "pyproject.toml",
