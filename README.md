@@ -66,6 +66,8 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 
 ## Cluster tools (server role, when `[cluster].enabled=true`)
 
+- `cluster_list_clients()`
+- `cluster_list_client_tools(node_id)`
 - `cluster_list_remote_tools()`
 - `cluster_call_remote_tool(tool_name, arguments_json="{}")`
 

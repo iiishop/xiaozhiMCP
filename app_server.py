@@ -98,6 +98,22 @@ async def run_server(config_path: str) -> None:
                 return {"success": True, "count": len(tools), "tools": tools}
 
             @mcp.tool()
+            async def cluster_list_clients() -> dict:
+                """List connected clients with node_id, platform and tool count."""
+                clients = await cluster_server.registry.list_clients()
+                return {"success": True, "count": len(clients), "clients": clients}
+
+            @mcp.tool()
+            async def cluster_list_client_tools(node_id: str) -> dict:
+                """List MCP tools installed on a specific client by node_id."""
+                clients = await cluster_server.registry.list_clients()
+                exists = any(str(item.get("node_id", "")) == str(node_id) for item in clients)
+                if not exists:
+                    return {"success": False, "error": f"client not found: {node_id}", "node_id": node_id}
+                tools = await cluster_server.registry.list_tools_by_node(str(node_id))
+                return {"success": True, "node_id": node_id, "count": len(tools), "tools": tools}
+
+            @mcp.tool()
             async def cluster_call_remote_tool(tool_name: str, arguments_json: str = "{}") -> dict:
                 """Call a remote client tool by exact unique tool_name."""
                 import json

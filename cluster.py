@@ -142,6 +142,39 @@ class ClientRegistry:
             out.sort(key=lambda x: x["name"])
             return out
 
+    async def list_clients(self) -> list[dict[str, Any]]:
+        async with self._lock:
+            out: list[dict[str, Any]] = []
+            for node in self._clients.values():
+                out.append(
+                    {
+                        "node_id": node.node_id,
+                        "platform": node.platform,
+                        "tool_count": len(node.tools),
+                        "last_seen": int(node.last_seen),
+                    }
+                )
+            out.sort(key=lambda x: x["node_id"])
+            return out
+
+    async def list_tools_by_node(self, node_id: str) -> list[dict[str, Any]]:
+        async with self._lock:
+            node = self._clients.get(node_id)
+            if node is None:
+                return []
+            out: list[dict[str, Any]] = []
+            for tool in node.tools.values():
+                out.append(
+                    {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "input_schema": tool.input_schema,
+                        "node_id": tool.node_id,
+                    }
+                )
+            out.sort(key=lambda x: x["name"])
+            return out
+
 
 class ClusterServer:
     def __init__(self, host: str, port: int, client_token: str, error_store: ErrorStore | None = None) -> None:
