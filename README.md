@@ -103,12 +103,15 @@ Add this section in `config.toml` on your macOS client:
 ```toml
 [apple_music]
 enabled = true
-repo_url = "https://github.com/epheterson/mcp-applemusic.git"
-branch = "main"
 install_dir = "~/.xiaozhi/applemusic-mcp"
 update_on_startup = true
-tool_prefix = "apple_music_"
 ```
+
+`repo_url`, `branch`, and tool prefix are hardcoded to:
+
+- `https://github.com/epheterson/mcp-applemusic.git`
+- `main`
+- `apple_music_`
 
 When enabled, the macOS bridge component discovery/export phase will:
 

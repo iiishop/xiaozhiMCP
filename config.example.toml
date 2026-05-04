@@ -31,8 +31,5 @@ client_token = "replace_with_shared_client_token"
 [apple_music]
 # Auto-bootstrap Apple Music MCP (macOS client only).
 enabled = true
-repo_url = "https://github.com/epheterson/mcp-applemusic.git"
-branch = "main"
 install_dir = "~/.xiaozhi/applemusic-mcp"
 update_on_startup = true
-tool_prefix = "apple_music_"
