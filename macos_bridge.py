@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -274,7 +275,7 @@ class StdioMCPBridge:
             log.info("apple_music bridge: discovered tools=%d", len(out))
             return out
 
-    async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
+    def _invoke_tool_sync(self, tool_name: str, arguments: dict[str, Any]) -> dict:
         with self._lock:
             log.info("apple_music bridge: invoke start tool=%s", tool_name)
             self._ensure_started()
@@ -291,6 +292,11 @@ class StdioMCPBridge:
             msg = self._request("tools/call", {"name": raw_name, "arguments": arguments}, timeout_seconds=60.0)
             log.info("apple_music bridge: invoke success tool=%s", tool_name)
             return {"success": True, "result": msg.get("result")}
+
+    async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
+        # Run blocking stdio bridge I/O in a worker thread so websocket
+        # heartbeat on the main event loop does not timeout.
+        return await asyncio.to_thread(self._invoke_tool_sync, tool_name, arguments)
 
     def register(self, _mcp: Any) -> None:
         return None
