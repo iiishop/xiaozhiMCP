@@ -91,6 +91,11 @@ async def run_server(config_path: str) -> None:
             )
             await cluster_server.start()
 
+            for component in components:
+                setter = getattr(component, "set_remote_invoker", None)
+                if callable(setter):
+                    setter(cluster_server.invoke_remote_tool)
+
             @mcp.tool()
             async def cluster_list_remote_tools() -> dict:
                 """List all tools registered by connected remote clients."""

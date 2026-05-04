@@ -28,7 +28,7 @@ Key sections:
 - `[client]`: client-side connection settings
 - `[components]`: folder path for user-provided components
 
-`catalog_install_component` installs to the same folder configured by `[components].folder` unless `[catalog].install_folder` is explicitly set.
+Catalog install defaults to the folder configured by `[components].folder` unless `[catalog].install_folder` is explicitly set.
 
 `user_components/` is ignored by git by design. Put custom components there.
 
@@ -60,9 +60,24 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 
 - `exa_web_search(...)`
 - `catalog_list_components()`
+- `catalog_search_components(query="", fuzzy=true, readme=false, platform="")`
+- `catalog_describe_component(component_name)`
 - `catalog_get_component_readme(component_name)`
-- `catalog_install_component(component_name)`
+- `catalog_get_component_platforms(component_name)`
+- `catalog_install_component_to_server(component_name)`
+- `catalog_install_component_to_client(component_name, node_id, mode="client_pull")`
 - `logmcp_get_errors(limit=50)`
+
+## Components Repository README Rule
+
+Each MCP folder README in `xiaozhiMCP-components` should end with this exact final line:
+
+`Platforms: Windows|Linux|MacOs`
+
+Examples:
+
+- Cross-platform: `Platforms: Windows|Linux|MacOs`
+- macOS only: `Platforms: MacOs`
 
 ## Cluster tools (server role, when `[cluster].enabled=true`)
 

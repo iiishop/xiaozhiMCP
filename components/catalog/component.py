@@ -38,6 +38,13 @@ class CatalogComponent(MCPComponent):
         self.branch = branch or "main"
         self.install_folder = install_folder or "user_components"
         self.timeout_seconds = max(5, int(timeout_seconds))
+        self._remote_invoker: Any = None
+
+    def supports_role(self, role: str) -> bool:
+        return role == "server"
+
+    def set_remote_invoker(self, invoker: Any) -> None:
+        self._remote_invoker = invoker
 
     def _get_json(self, url: str) -> Any:
         resp = requests.get(url, timeout=self.timeout_seconds)
@@ -107,6 +114,91 @@ class CatalogComponent(MCPComponent):
             out.sort(key=lambda x: x["name"])
             return out
 
+    def _parse_platforms_from_readme(self, readme: str) -> dict[str, Any]:
+        lines = [line.strip() for line in (readme or "").splitlines() if line.strip()]
+        if not lines:
+            return {"platforms": [], "valid": False, "raw": "", "warning": "README is empty"}
+        last = lines[-1]
+        m = re.match(r"^Platforms\s*:\s*(.+)$", last, re.IGNORECASE)
+        if not m:
+            return {
+                "platforms": [],
+                "valid": False,
+                "raw": last,
+                "warning": "Missing final line format: Platforms: Windows|Linux|MacOs",
+            }
+
+        raw = m.group(1).strip()
+        parts = [p.strip() for p in raw.split("|") if p.strip()]
+        norm_map = {
+            "windows": "Windows",
+            "linux": "Linux",
+            "macos": "MacOs",
+        }
+        out: list[str] = []
+        unknown: list[str] = []
+        for part in parts:
+            key = part.lower()
+            if key in norm_map:
+                val = norm_map[key]
+                if val not in out:
+                    out.append(val)
+            else:
+                unknown.append(part)
+        warning = ""
+        if unknown:
+            warning = f"Unknown platform tokens: {', '.join(unknown)}"
+        return {"platforms": out, "valid": len(out) > 0 and not unknown, "raw": raw, "warning": warning}
+
+    def _component_meta(self, target: dict[str, Any]) -> dict[str, Any]:
+        readme_path = f"{target['path'].strip('/')}/{target['readme'].strip('/')}"
+        readme_text = self._get_text(self._raw_url(readme_path))
+        platform_info = self._parse_platforms_from_readme(readme_text)
+        return {
+            **target,
+            "readme_path": readme_path,
+            "readme": readme_text,
+            "platforms": platform_info.get("platforms", []),
+            "platform_valid": bool(platform_info.get("valid", False)),
+            "platform_warning": str(platform_info.get("warning", "")),
+        }
+
+    def search_components(self, query: str = "", fuzzy: bool = True, readme: bool = False, platform: str = "") -> dict[str, Any]:
+        q = (query or "").strip().lower()
+        p = (platform or "").strip().lower()
+        requested_platform = ""
+        if p:
+            requested_platform = {"windows": "Windows", "linux": "Linux", "macos": "MacOs"}.get(p, "")
+        items = self.list_components()
+        out: list[dict[str, Any]] = []
+        for item in items:
+            meta = self._component_meta(item)
+            if requested_platform and requested_platform not in meta.get("platforms", []):
+                continue
+            matched = not q
+            if q:
+                name = str(meta.get("name", "")).lower()
+                desc = str(meta.get("description", "")).lower()
+                if fuzzy:
+                    matched = q in name or q in desc
+                else:
+                    matched = q == name
+                if readme and not matched:
+                    matched = q in str(meta.get("readme", "")).lower()
+            if matched:
+                out.append(
+                    {
+                        "name": meta["name"],
+                        "description": meta.get("description", ""),
+                        "version": meta.get("version", ""),
+                        "platforms": meta.get("platforms", []),
+                        "platform_valid": meta.get("platform_valid", False),
+                        "platform_warning": meta.get("platform_warning", ""),
+                    }
+                )
+        out.sort(key=lambda x: x["name"])
+        return {"success": True, "count": len(out), "components": out}
+
     def get_component_readme(self, component_name: str) -> dict[str, Any]:
         name = _safe_component_name(component_name)
         all_items = self.list_components()
@@ -115,11 +207,53 @@ class CatalogComponent(MCPComponent):
             return {"success": False, "error": f"component not found: {name}"}
         readme_path = f"{target['path'].strip('/')}/{target['readme'].strip('/')}"
         text = self._get_text(self._raw_url(readme_path))
+        platform_info = self._parse_platforms_from_readme(text)
         return {
             "success": True,
             "name": name,
             "readme_path": readme_path,
             "readme": text,
+            "platforms": platform_info.get("platforms", []),
+            "platform_valid": bool(platform_info.get("valid", False)),
+            "platform_warning": str(platform_info.get("warning", "")),
+        }
+
+    def describe_component(self, component_name: str) -> dict[str, Any]:
+        name = _safe_component_name(component_name)
+        all_items = self.list_components()
+        target = next((x for x in all_items if x["name"] == name), None)
+        if not target:
+            return {"success": False, "error": f"component not found: {name}"}
+        meta = self._component_meta(target)
+        lines = [line.strip() for line in str(meta.get("readme", "")).splitlines() if line.strip()]
+        summary = lines[1] if len(lines) > 1 else (lines[0] if lines else "")
+        return {
+            "success": True,
+            "name": meta["name"],
+            "description": meta.get("description", ""),
+            "version": meta.get("version", ""),
+            "path": meta.get("path", ""),
+            "entry": meta.get("entry", ""),
+            "readme_path": meta.get("readme_path", ""),
+            "summary": summary,
+            "platforms": meta.get("platforms", []),
+            "platform_valid": meta.get("platform_valid", False),
+            "platform_warning": meta.get("platform_warning", ""),
+        }
+
+    def get_component_platforms(self, component_name: str) -> dict[str, Any]:
+        name = _safe_component_name(component_name)
+        all_items = self.list_components()
+        target = next((x for x in all_items if x["name"] == name), None)
+        if not target:
+            return {"success": False, "error": f"component not found: {name}"}
+        meta = self._component_meta(target)
+        return {
+            "success": True,
+            "name": meta["name"],
+            "platforms": meta.get("platforms", []),
+            "platform_valid": meta.get("platform_valid", False),
+            "platform_warning": meta.get("platform_warning", ""),
         }
 
     def install_component(self, component_name: str) -> dict[str, Any]:
@@ -151,12 +285,47 @@ class CatalogComponent(MCPComponent):
             "installed_to": str(target_dir),
         }
 
+    async def install_component_to_client(self, component_name: str, node_id: str, mode: str = "client_pull") -> dict[str, Any]:
+        if mode != "client_pull":
+            return {
+                "success": False,
+                "error": "not_implemented",
+                "mode": mode,
+                "message": "server_push is not implemented in stage 1",
+            }
+        if self._remote_invoker is None:
+            return {"success": False, "error": "remote invoker not configured"}
+
+        req = {
+            "type": "catalog_install_component",
+            "component_name": str(component_name),
+            "node_id": str(node_id),
+            "repo_url": self.repo_url,
+            "branch": self.branch,
+        }
+        tool_name = f"agent_install_component__{node_id}"
+        result = await self._remote_invoker(tool_name, req)
+        return {"success": True, "mode": mode, "node_id": node_id, "result": result}
+
     def export_tools(self) -> list[dict[str, Any]]:
         return [
             {
                 "name": "catalog_list_components",
                 "description": "List available components in the remote MCP components repository.",
                 "input_schema": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "catalog_search_components",
+                "description": "Search components by keyword, fuzzy match, README keyword and optional platform filter.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "fuzzy": {"type": "boolean"},
+                        "readme": {"type": "boolean"},
+                        "platform": {"type": "string"},
+                    },
+                },
             },
             {
                 "name": "catalog_get_component_readme",
@@ -168,12 +337,43 @@ class CatalogComponent(MCPComponent):
                 },
             },
             {
-                "name": "catalog_install_component",
-                "description": "Install a component from remote repository into local user_components folder.",
+                "name": "catalog_describe_component",
+                "description": "Describe a component with summary and metadata.",
                 "input_schema": {
                     "type": "object",
                     "properties": {"component_name": {"type": "string"}},
                     "required": ["component_name"],
+                },
+            },
+            {
+                "name": "catalog_get_component_platforms",
+                "description": "Get required platforms parsed from README final Platforms line.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"component_name": {"type": "string"}},
+                    "required": ["component_name"],
+                },
+            },
+            {
+                "name": "catalog_install_component_to_server",
+                "description": "Install a component from remote repository into local server components folder.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"component_name": {"type": "string"}},
+                    "required": ["component_name"],
+                },
+            },
+            {
+                "name": "catalog_install_component_to_client",
+                "description": "Install a component to target client by node_id, supports client_pull and reserved server_push mode.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "component_name": {"type": "string"},
+                        "node_id": {"type": "string"},
+                        "mode": {"type": "string"},
+                    },
+                    "required": ["component_name", "node_id"],
                 },
             },
         ]
@@ -182,9 +382,20 @@ class CatalogComponent(MCPComponent):
         if tool_name == "catalog_list_components":
             items = self.list_components()
             return {"success": True, "count": len(items), "components": items}
+        if tool_name == "catalog_search_components":
+            return self.search_components(
+                query=str(arguments.get("query", "")),
+                fuzzy=bool(arguments.get("fuzzy", True)),
+                readme=bool(arguments.get("readme", False)),
+                platform=str(arguments.get("platform", "")),
+            )
         if tool_name == "catalog_get_component_readme":
             return self.get_component_readme(str(arguments.get("component_name", "")))
-        if tool_name == "catalog_install_component":
+        if tool_name == "catalog_describe_component":
+            return self.describe_component(str(arguments.get("component_name", "")))
+        if tool_name == "catalog_get_component_platforms":
+            return self.get_component_platforms(str(arguments.get("component_name", "")))
+        if tool_name == "catalog_install_component_to_server":
             return self.install_component(str(arguments.get("component_name", "")))
         raise RuntimeError(f"unknown tool: {tool_name}")
 
@@ -195,14 +406,37 @@ class CatalogComponent(MCPComponent):
             return self.invoke_tool("catalog_list_components", {})
 
         @mcp.tool()
+        def catalog_search_components(query: str = "", fuzzy: bool = True, readme: bool = False, platform: str = "") -> dict:
+            """Search remote components by query and optional platform filter (Windows/Linux/MacOs)."""
+            return self.invoke_tool(
+                "catalog_search_components",
+                {"query": query, "fuzzy": bool(fuzzy), "readme": bool(readme), "platform": platform},
+            )
+
+        @mcp.tool()
         def catalog_get_component_readme(component_name: str) -> dict:
             """Read README.md of a remote component by name."""
             return self.invoke_tool("catalog_get_component_readme", {"component_name": component_name})
 
         @mcp.tool()
-        def catalog_install_component(component_name: str) -> dict:
-            """Install a component by name into local user_components folder."""
-            return self.invoke_tool("catalog_install_component", {"component_name": component_name})
+        def catalog_describe_component(component_name: str) -> dict:
+            """Get metadata and summary of a remote component by name."""
+            return self.invoke_tool("catalog_describe_component", {"component_name": component_name})
+
+        @mcp.tool()
+        def catalog_get_component_platforms(component_name: str) -> dict:
+            """Get platform requirements parsed from README final line: Platforms: Windows|Linux|MacOs."""
+            return self.invoke_tool("catalog_get_component_platforms", {"component_name": component_name})
+
+        @mcp.tool()
+        def catalog_install_component_to_server(component_name: str) -> dict:
+            """Install a component by name into local configured components folder on server."""
+            return self.invoke_tool("catalog_install_component_to_server", {"component_name": component_name})
+
+        @mcp.tool()
+        async def catalog_install_component_to_client(component_name: str, node_id: str, mode: str = "client_pull") -> dict:
+            """Install component to specific client node_id. mode=client_pull|server_push (server_push placeholder)."""
+            return await self.install_component_to_client(component_name=component_name, node_id=node_id, mode=mode)
 
 
 def build_component(config: dict[str, Any] | None = None, full_config: dict[str, Any] | None = None) -> CatalogComponent:
