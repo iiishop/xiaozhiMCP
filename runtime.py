@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import importlib
 import inspect
 import os
 from pathlib import Path
@@ -22,6 +23,31 @@ def _load_python_module(module_name: str, file_path: Path) -> Any | None:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def _load_component_module(path: Path, item: Path) -> Any | None:
+    # For built-in package components (components/<name>/component.py), use
+    # normal package import so relative imports like `from ..base import ...` work.
+    if path.name == "components" and item.is_dir():
+        try:
+            return importlib.import_module(f"components.{item.name}.component")
+        except Exception:
+            return None
+
+    if path.name == "components" and item.is_file() and item.suffix == ".py":
+        try:
+            return importlib.import_module(f"components.{item.stem}")
+        except Exception:
+            return None
+
+    # Fallback for external/user folders loaded by file path.
+    if item.is_file() and item.suffix == ".py":
+        return _load_python_module(f"dyn_component_{item.stem}", item)
+    if item.is_dir():
+        entry = item / "component.py"
+        if entry.exists():
+            return _load_python_module(f"dyn_component_{item.name}", entry)
+    return None
 
 
 def _instantiate_from_module(
@@ -83,15 +109,10 @@ def load_components_from_package_folder(folder: str, config: dict[str, Any]) -> 
 
         module: Any | None = None
         component_name = item.stem
+        if item.is_dir():
+            component_name = item.name
 
-        if item.is_file() and item.suffix == ".py":
-            module = _load_python_module(f"dyn_component_{item.stem}", item)
-            component_name = item.stem
-        elif item.is_dir():
-            entry = item / "component.py"
-            if entry.exists():
-                module = _load_python_module(f"dyn_component_{item.name}", entry)
-                component_name = item.name
+        module = _load_component_module(path, item)
 
         if module is None:
             continue
