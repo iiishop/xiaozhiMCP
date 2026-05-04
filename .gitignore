@@ -21,6 +21,9 @@ dist/
 .coverage
 htmlcov/
 
+# Project test sources (not tracked)
+tests/
+
 # IDE/editor files
 .idea/
 .vscode/
