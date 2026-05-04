@@ -23,6 +23,7 @@ only-include = [
   "cluster.py",
   "runtime.py",
   "config_loader.py",
+  "error_store.py",
   "components",
 ]
 
@@ -33,6 +34,7 @@ include = [
   "cluster.py",
   "runtime.py",
   "config_loader.py",
+  "error_store.py",
   "components/**/*.py",
   "README.md",
   "pyproject.toml",

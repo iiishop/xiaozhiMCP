@@ -4,10 +4,13 @@ import asyncio
 import json
 import logging
 import time
+import traceback
 from dataclasses import dataclass, field
 from typing import Any
 
 import websockets
+
+from error_store import ErrorStore
 
 logger = logging.getLogger("cluster")
 
@@ -141,12 +144,21 @@ class ClientRegistry:
 
 
 class ClusterServer:
-    def __init__(self, host: str, port: int, client_token: str) -> None:
+    def __init__(self, host: str, port: int, client_token: str, error_store: ErrorStore | None = None) -> None:
         self.host = host
         self.port = port
         self.client_token = client_token
         self.registry = ClientRegistry()
         self._server = None
+        self.error_store = error_store
+
+    def _log_known_error(self, error_code: str, message: str, conclusion: str) -> None:
+        if self.error_store is not None:
+            self.error_store.add_known("cluster", error_code, message, conclusion)
+
+    def _log_unknown_error(self, message: str, detail: str) -> None:
+        if self.error_store is not None:
+            self.error_store.add_unknown("cluster", message, detail)
 
     async def set_reserved_tool_names(self, names: set[str]) -> None:
         await self.registry.set_reserved_tool_names(names)
@@ -161,16 +173,31 @@ class ClusterServer:
             raw = await websocket.recv()
             hello = json.loads(raw)
             if not isinstance(hello, dict) or hello.get("type") != "register":
+                self._log_known_error(
+                    "INVALID_REGISTER_PACKET",
+                    "first packet must be register",
+                    "Client must send type=register as the first websocket message.",
+                )
                 await websocket.send(json.dumps({"type": "error", "message": "first packet must be register"}))
                 return
 
             token = str(hello.get("client_token", ""))
             if token != self.client_token:
+                self._log_known_error(
+                    "UNAUTHORIZED_CLIENT",
+                    "unauthorized",
+                    "Client token mismatch. Ensure client.client_token equals server cluster.client_token.",
+                )
                 await websocket.send(json.dumps({"type": "error", "message": "unauthorized"}))
                 return
 
             node_id = str(hello.get("node_id", "")).strip()
             if not node_id:
+                self._log_known_error(
+                    "MISSING_NODE_ID",
+                    "node_id required",
+                    "Client must provide a unique node_id in register message.",
+                )
                 await websocket.send(json.dumps({"type": "error", "message": "node_id required"}))
                 return
 
@@ -181,6 +208,20 @@ class ClusterServer:
                 tools=hello.get("tools", []) if isinstance(hello.get("tools", []), list) else [],
             )
             if not ok:
+                if msg.startswith("tool name conflict with server local tool:"):
+                    self._log_known_error(
+                        "CLIENT_TOOL_CONFLICT_WITH_SERVER",
+                        msg,
+                        "Server local MCP/tool has higher priority. Rename client MCP/tool to a unique name.",
+                    )
+                elif msg.startswith("tool name conflict:"):
+                    self._log_known_error(
+                        "CLIENT_TOOL_CONFLICT",
+                        msg,
+                        "Multiple clients registered the same MCP/tool name. Keep client MCP/tool names globally unique.",
+                    )
+                else:
+                    self._log_known_error("CLIENT_REGISTER_REJECTED", msg, "Fix registration payload and retry.")
                 await websocket.send(json.dumps({"type": "error", "message": msg}))
                 return
 
@@ -201,6 +242,7 @@ class ClusterServer:
                         future.set_result(payload)
         except Exception as exc:  # noqa: BLE001
             logger.info("Client disconnected: %s (%s)", node_id or "unknown", exc)
+            self._log_unknown_error(str(exc), traceback.format_exc())
         finally:
             if node_id:
                 await self.registry.unregister(node_id)

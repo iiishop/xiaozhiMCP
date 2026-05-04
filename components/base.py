@@ -5,6 +5,9 @@ from typing import Any
 
 
 class MCPComponent(ABC):
+    def supports_role(self, role: str) -> bool:
+        return True
+
     def export_tools(self) -> list[dict[str, Any]]:
         return []
 

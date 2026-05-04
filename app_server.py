@@ -10,6 +10,7 @@ from mcp.server.fastmcp import FastMCP
 
 from cluster import ClusterClient, ClusterServer
 from config_loader import get_nested_str, load_config
+from error_store import ErrorStore
 from runtime import detect_platform, load_components_from_package_folder, load_user_components
 
 
@@ -39,6 +40,18 @@ def register_components(mcp: FastMCP, config: dict[str, Any]) -> list[Any]:
     return components
 
 
+def filter_components_by_role(components: list[Any], role: str) -> list[Any]:
+    out: list[Any] = []
+    for component in components:
+        supports = getattr(component, "supports_role", None)
+        if callable(supports):
+            if bool(supports(role)):
+                out.append(component)
+            continue
+        out.append(component)
+    return out
+
+
 def collect_exported_tools(components: list[Any]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     tools: list[dict[str, Any]] = []
     invokers: dict[str, Any] = {}
@@ -59,8 +72,11 @@ def collect_exported_tools(components: list[Any]) -> tuple[list[dict[str, Any]],
 async def run_server(config_path: str) -> None:
     config = load_config(config_path)
     mcp = FastMCP("XiaozhiExtensions")
-    components = register_components(mcp, config)
+    components = filter_components_by_role(collect_components(config), "server")
+    for component in components:
+        component.register(mcp)
     local_tools, _ = collect_exported_tools(components)
+    error_store = ErrorStore(get_nested_str(config, "logmcp", "db_path") or None)
 
     cluster_enabled = (get_nested_str(config, "cluster", "enabled") or "").lower() in {"1", "true", "yes", "on"}
     cluster_server = None
@@ -69,7 +85,7 @@ async def run_server(config_path: str) -> None:
         port = int(get_nested_str(config, "cluster", "listen_port") or "18888")
         token = get_nested_str(config, "cluster", "client_token")
         if token:
-            cluster_server = ClusterServer(host=host, port=port, client_token=token)
+            cluster_server = ClusterServer(host=host, port=port, client_token=token, error_store=error_store)
             await cluster_server.set_reserved_tool_names(
                 {str(t.get("name", "")).strip() for t in local_tools if str(t.get("name", "")).strip()}
             )
@@ -100,7 +116,7 @@ async def run_server(config_path: str) -> None:
 
 async def run_client(config_path: str) -> None:
     config = load_config(config_path)
-    components = collect_components(config)
+    components = filter_components_by_role(collect_components(config), "client")
     declared_tools, invokers = collect_exported_tools(components)
 
     async def invoker(tool_name: str, args: dict[str, Any]) -> dict:

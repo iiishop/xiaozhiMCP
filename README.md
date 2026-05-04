@@ -62,6 +62,7 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 - `catalog_list_components()`
 - `catalog_get_component_readme(component_name)`
 - `catalog_install_component(component_name)`
+- `logmcp_get_errors(limit=50)`
 
 ## Cluster tools (server role, when `[cluster].enabled=true`)
 
