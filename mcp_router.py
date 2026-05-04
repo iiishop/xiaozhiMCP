@@ -149,6 +149,20 @@ async def run_router(endpoint: str, command: list[str]) -> None:
                 await proc.wait()
 
 
+async def run_router_forever(endpoint: str, command: list[str]) -> None:
+    retry_seconds = 3
+    while True:
+        try:
+            await run_router(endpoint, command)
+            # Normal exit: do not spin.
+            return
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Router loop reconnect in %ss after error: %s", retry_seconds, exc)
+            await asyncio.sleep(retry_seconds)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Route xiaozhi MCP endpoint <-> local stdio MCP server")
     parser.add_argument(
@@ -194,7 +208,7 @@ def main() -> int:
 
     command = [sys.executable, server_script, "--config", args.config]
     try:
-        asyncio.run(run_router(endpoint, command))
+        asyncio.run(run_router_forever(endpoint, command))
         return 0
     except KeyboardInterrupt:
         logger.info("Stopped by user")

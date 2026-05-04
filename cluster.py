@@ -259,6 +259,14 @@ class ClusterServer:
                 return
 
             await websocket.send(json.dumps({"type": "register_ack", "ok": True}))
+            tool_names = sorted(list(self._clients_tools_preview(hello.get("tools", []))))
+            logger.info(
+                "Client registered: node_id=%s platform=%s tools=%d names=%s",
+                node_id,
+                str(hello.get("platform", "unknown")),
+                len(tool_names),
+                ",".join(tool_names),
+            )
 
             async for message in websocket:
                 payload = json.loads(message)
@@ -279,6 +287,19 @@ class ClusterServer:
         finally:
             if node_id:
                 await self.registry.unregister(node_id)
+
+    @staticmethod
+    def _clients_tools_preview(tools: Any) -> set[str]:
+        out: set[str] = set()
+        if not isinstance(tools, list):
+            return out
+        for item in tools:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name", "")).strip()
+            if name:
+                out.add(name)
+        return out
 
     async def invoke_remote_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         session = await self.registry.route_tool(tool_name)
