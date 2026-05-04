@@ -108,7 +108,7 @@ class StdioMCPBridge:
             "clientInfo": {"name": "xiaozhi-apple-music-bridge", "version": "0.1.0"},
         }
         try:
-            self._request("initialize", init_payload)
+            self._request("initialize", init_payload, timeout_seconds=8.0)
             self._notify("notifications/initialized", {})
             log.info("apple_music bridge: initialized mcp session protocol=%s", self._protocol)
             return
@@ -121,7 +121,7 @@ class StdioMCPBridge:
         self._protocol = "jsonl"
         self._header_rejected.clear()
         self._start_stderr_drain()
-        self._request("initialize", init_payload)
+        self._request("initialize", init_payload, timeout_seconds=8.0)
         self._notify("notifications/initialized", {})
         log.info("apple_music bridge: initialized mcp session protocol=%s", self._protocol)
 
@@ -143,13 +143,14 @@ class StdioMCPBridge:
     def _notify(self, method: str, params: dict[str, Any]) -> None:
         self._write_message({"jsonrpc": "2.0", "method": method, "params": params})
 
-    def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+    def _request(self, method: str, params: dict[str, Any], timeout_seconds: float | None = None) -> dict[str, Any]:
         req_id = self._id
         self._id += 1
         log.info("apple_music bridge: request start method=%s id=%s", method, req_id)
         self._write_message({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
+        deadline = (time.time() + timeout_seconds) if timeout_seconds and timeout_seconds > 0 else None
         while True:
-            msg = self._read_message()
+            msg = self._read_message(deadline=deadline)
             if msg.get("id") != req_id:
                 log.info("apple_music bridge: request id=%s skipped unrelated id=%s", req_id, msg.get("id"))
                 continue
@@ -170,14 +171,14 @@ class StdioMCPBridge:
             self._proc.stdin.write(header + raw)
         self._proc.stdin.flush()
 
-    def _read_message(self) -> dict[str, Any]:
+    def _read_message(self, deadline: float | None = None) -> dict[str, Any]:
         if not self._proc or not self._proc.stdout:
             raise RuntimeError("bridge process not started")
 
         if self._protocol == "jsonl":
             line = b""
             while not line.endswith(b"\n"):
-                line += self._read_with_wait(1, "jsonl_line")
+                line += self._read_with_wait(1, "jsonl_line", deadline)
             line = line.strip()
             if not line:
                 raise RuntimeError("empty jsonl message from bridged mcp")
@@ -186,7 +187,7 @@ class StdioMCPBridge:
 
         headers = b""
         while b"\r\n\r\n" not in headers:
-            headers += self._read_with_wait(1, "headers")
+            headers += self._read_with_wait(1, "headers", deadline)
 
         content_length = 0
         for line in headers.decode("ascii", errors="replace").split("\r\n"):
@@ -198,11 +199,11 @@ class StdioMCPBridge:
 
         body = b""
         while len(body) < content_length:
-            body += self._read_with_wait(content_length - len(body), "body")
+            body += self._read_with_wait(content_length - len(body), "body", deadline)
         log.info("apple_music bridge: received message bytes=%d", len(body))
         return json.loads(body.decode("utf-8"))
 
-    def _read_with_wait(self, max_bytes: int, phase: str) -> bytes:
+    def _read_with_wait(self, max_bytes: int, phase: str, deadline: float | None) -> bytes:
         if not self._proc or not self._proc.stdout:
             raise RuntimeError("bridge process not started")
 
@@ -225,6 +226,8 @@ class StdioMCPBridge:
                     elapsed,
                     state,
                 )
+            if deadline is not None and time.time() > deadline:
+                raise TimeoutError(f"timeout waiting for {phase} response from bridged mcp")
 
     def _start_stderr_drain(self) -> None:
         if not self._proc or not self._proc.stderr:
@@ -238,7 +241,7 @@ class StdioMCPBridge:
                 line = raw.decode("utf-8", errors="replace").rstrip()
                 if line:
                     log.info("apple_music bridge stderr: %s", line)
-                if "Invalid JSON" in line and "Content-Length" in line:
+                if "Invalid JSON" in line:
                     self._header_rejected.set()
 
         self._stderr_thread = threading.Thread(target=_drain, name="apple-music-bridge-stderr", daemon=True)
