@@ -199,9 +199,14 @@ async def run_server(config_path: str) -> None:
 
 
 async def run_client(config_path: str) -> None:
+    logger = logging.getLogger("app_server.client")
+    logger.info("client startup: begin, config=%s", config_path)
     config = load_config(config_path)
+    logger.info("client startup: config loaded")
     components = filter_components_by_role(collect_components(config), "client")
+    logger.info("client startup: discovered components=%d", len(components))
     declared_tools, invokers = collect_exported_tools(components)
+    logger.info("client startup: exported tools=%d", len(declared_tools))
 
     # Core client installer endpoint (server invokes this tool).
     node_id = get_nested_str(config, "client", "node_id")
@@ -266,6 +271,7 @@ async def run_client(config_path: str) -> None:
         platform=detect_platform(),
         tools=declared_tools,
     )
+    logger.info("client startup: connecting to server_url=%s node_id=%s", server_url, node_id)
     await client.run_forever(invoker)
 
 

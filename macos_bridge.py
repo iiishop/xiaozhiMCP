@@ -26,6 +26,7 @@ def prepare_apple_music_bridge(config: dict[str, Any]) -> dict[str, Any] | None:
 
     section = config.get("apple_music") if isinstance(config.get("apple_music"), dict) else {}
     if not _is_truthy(section.get("enabled"), default=True):
+        log.info("apple_music bridge: disabled by config")
         return None
 
     repo_url = "https://github.com/epheterson/mcp-applemusic.git"
@@ -35,17 +36,23 @@ def prepare_apple_music_bridge(config: dict[str, Any]) -> dict[str, Any] | None:
     venv_python = venv_dir / "bin" / "python"
 
     install_dir.parent.mkdir(parents=True, exist_ok=True)
+    log.info("apple_music bridge: install_dir=%s", str(install_dir))
 
     if not (install_dir / ".git").exists():
+        log.info("apple_music bridge: cloning repository")
         _run(["git", "clone", "--branch", branch, repo_url, str(install_dir)], "clone repo")
     elif _is_truthy(section.get("update_on_startup"), default=True):
+        log.info("apple_music bridge: updating repository")
         _run(["git", "-C", str(install_dir), "fetch", "origin", branch], "fetch updates")
         _run(["git", "-C", str(install_dir), "pull", "--ff-only", "origin", branch], "pull updates")
 
     if not venv_python.exists():
+        log.info("apple_music bridge: creating venv")
         _run(["python3", "-m", "venv", str(venv_dir)], "create venv")
 
+    log.info("apple_music bridge: installing package")
     _run([str(venv_python), "-m", "pip", "install", "-e", str(install_dir)], "install editable package")
+    log.info("apple_music bridge: bootstrap complete")
 
     return {
         "command": str(venv_python),
@@ -85,11 +92,13 @@ class StdioMCPBridge:
             env[str(k)] = str(v)
 
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        log.info("apple_music bridge: spawned stdio mcp process")
         self._request(
             "initialize",
             {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "xiaozhi-apple-music-bridge", "version": "0.1.0"}},
         )
         self._notify("notifications/initialized", {})
+        log.info("apple_music bridge: initialized mcp session")
 
     def _notify(self, method: str, params: dict[str, Any]) -> None:
         self._write_message({"jsonrpc": "2.0", "method": method, "params": params})
@@ -170,6 +179,7 @@ class StdioMCPBridge:
                     }
                 )
             self._cached_tools = out
+            log.info("apple_music bridge: discovered tools=%d", len(out))
             return out
 
     async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
