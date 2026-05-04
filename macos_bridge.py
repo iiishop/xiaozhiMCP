@@ -321,7 +321,24 @@ class StdioMCPBridge:
     async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
         # Run blocking stdio bridge I/O in a worker thread so websocket
         # heartbeat on the main event loop does not timeout.
-        return await asyncio.to_thread(self._invoke_tool_sync, tool_name, arguments)
+        try:
+            return await asyncio.to_thread(self._invoke_tool_sync, tool_name, arguments)
+        except TimeoutError as exc:
+            log.warning("apple_music bridge: invoke timeout tool=%s error=%s", tool_name, exc)
+            return {
+                "success": False,
+                "error": "timeout",
+                "message": str(exc),
+                "tool": tool_name,
+            }
+        except Exception as exc:  # noqa: BLE001
+            log.exception("apple_music bridge: invoke failed tool=%s", tool_name)
+            return {
+                "success": False,
+                "error": "invoke_failed",
+                "message": str(exc),
+                "tool": tool_name,
+            }
 
     def register(self, _mcp: Any) -> None:
         return None
