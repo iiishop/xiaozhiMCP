@@ -4,8 +4,10 @@ import json
 import logging
 import os
 import platform
+import select
 import subprocess
 import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +80,7 @@ class StdioMCPBridge:
         self._id = 1
         self._lock = threading.Lock()
         self._cached_tools: list[dict[str, Any]] | None = None
+        self._stderr_thread: threading.Thread | None = None
 
     def _ensure_started(self) -> None:
         if self._proc and self._proc.poll() is None:
@@ -93,6 +96,7 @@ class StdioMCPBridge:
 
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
         log.info("apple_music bridge: spawned stdio mcp process")
+        self._start_stderr_drain()
         self._request(
             "initialize",
             {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "xiaozhi-apple-music-bridge", "version": "0.1.0"}},
@@ -106,14 +110,17 @@ class StdioMCPBridge:
     def _request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         req_id = self._id
         self._id += 1
+        log.info("apple_music bridge: request start method=%s id=%s", method, req_id)
         self._write_message({"jsonrpc": "2.0", "id": req_id, "method": method, "params": params})
         while True:
             msg = self._read_message()
             if msg.get("id") != req_id:
+                log.info("apple_music bridge: request id=%s skipped unrelated id=%s", req_id, msg.get("id"))
                 continue
             if "error" in msg:
                 err = msg.get("error") or {}
                 raise RuntimeError(str(err.get("message", "unknown mcp error")))
+            log.info("apple_music bridge: request success method=%s id=%s", method, req_id)
             return msg
 
     def _write_message(self, payload: dict[str, Any]) -> None:
@@ -130,14 +137,7 @@ class StdioMCPBridge:
 
         headers = b""
         while b"\r\n\r\n" not in headers:
-            b = self._proc.stdout.read(1)
-            if not b:
-                stderr = b""
-                if self._proc.stderr:
-                    stderr = self._proc.stderr.read() or b""
-                detail = stderr.decode("utf-8", errors="replace").strip()
-                raise RuntimeError(detail or "bridge process closed stdout")
-            headers += b
+            headers += self._read_with_wait(1, "headers")
 
         content_length = 0
         for line in headers.decode("ascii", errors="replace").split("\r\n"):
@@ -149,11 +149,49 @@ class StdioMCPBridge:
 
         body = b""
         while len(body) < content_length:
-            chunk = self._proc.stdout.read(content_length - len(body))
-            if not chunk:
-                raise RuntimeError("unexpected eof from bridged mcp")
-            body += chunk
+            body += self._read_with_wait(content_length - len(body), "body")
+        log.info("apple_music bridge: received message bytes=%d", len(body))
         return json.loads(body.decode("utf-8"))
+
+    def _read_with_wait(self, max_bytes: int, phase: str) -> bytes:
+        if not self._proc or not self._proc.stdout:
+            raise RuntimeError("bridge process not started")
+
+        fd = self._proc.stdout.fileno()
+        started = time.time()
+        while True:
+            ready, _, _ = select.select([fd], [], [], 2.0)
+            if ready:
+                chunk = os.read(fd, max_bytes)
+                if chunk:
+                    return chunk
+                raise RuntimeError("bridge process closed stdout")
+
+            elapsed = int(time.time() - started)
+            if elapsed > 0 and elapsed % 10 == 0:
+                state = self._proc.poll()
+                log.info(
+                    "apple_music bridge: waiting for %s response... elapsed=%ss proc_exit=%s",
+                    phase,
+                    elapsed,
+                    state,
+                )
+
+    def _start_stderr_drain(self) -> None:
+        if not self._proc or not self._proc.stderr:
+            return
+        if self._stderr_thread is not None:
+            return
+
+        def _drain() -> None:
+            assert self._proc is not None and self._proc.stderr is not None
+            for raw in iter(self._proc.stderr.readline, b""):
+                line = raw.decode("utf-8", errors="replace").rstrip()
+                if line:
+                    log.info("apple_music bridge stderr: %s", line)
+
+        self._stderr_thread = threading.Thread(target=_drain, name="apple-music-bridge-stderr", daemon=True)
+        self._stderr_thread.start()
 
     def export_tools(self) -> list[dict[str, Any]]:
         with self._lock:
