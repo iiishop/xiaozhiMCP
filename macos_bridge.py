@@ -159,6 +159,12 @@ class StdioMCPBridge:
                 err = msg.get("error") or {}
                 raise RuntimeError(str(err.get("message", "unknown mcp error")))
             log.info("apple_music bridge: request success method=%s id=%s", method, req_id)
+            if method == "tools/call":
+                result = msg.get("result")
+                preview = str(result)
+                if len(preview) > 800:
+                    preview = preview[:800] + "...<truncated>"
+                log.info("apple_music bridge: tools/call result preview=%s", preview)
             return msg
 
     def _write_message(self, payload: dict[str, Any]) -> None:
@@ -278,6 +284,10 @@ class StdioMCPBridge:
     def _invoke_tool_sync(self, tool_name: str, arguments: dict[str, Any]) -> dict:
         with self._lock:
             log.info("apple_music bridge: invoke start tool=%s", tool_name)
+            args_preview = str(arguments)
+            if len(args_preview) > 400:
+                args_preview = args_preview[:400] + "...<truncated>"
+            log.info("apple_music bridge: invoke args tool=%s args=%s", tool_name, args_preview)
             self._ensure_started()
             raw_name = ""
             tools = self._cached_tools or []
@@ -289,8 +299,23 @@ class StdioMCPBridge:
                     break
             if not raw_name:
                 raise RuntimeError(f"unknown bridged tool: {tool_name}")
-            msg = self._request("tools/call", {"name": raw_name, "arguments": arguments}, timeout_seconds=60.0)
-            log.info("apple_music bridge: invoke success tool=%s", tool_name)
+            timeout_seconds = 60.0
+            lowered = tool_name.lower()
+            if "catalog" in lowered or "library" in lowered or "discover" in lowered:
+                timeout_seconds = 180.0
+            started = time.time()
+            msg = self._request(
+                "tools/call",
+                {"name": raw_name, "arguments": arguments},
+                timeout_seconds=timeout_seconds,
+            )
+            elapsed_ms = int((time.time() - started) * 1000)
+            log.info(
+                "apple_music bridge: invoke success tool=%s elapsed_ms=%s timeout_s=%s",
+                tool_name,
+                elapsed_ms,
+                int(timeout_seconds),
+            )
             return {"success": True, "result": msg.get("result")}
 
     async def ainvoke_tool(self, tool_name: str, arguments: dict[str, Any]) -> dict:
