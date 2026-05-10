@@ -1,35 +1,96 @@
+# =============================================================================
+# xiaozhiMCP Configuration
+# =============================================================================
+# Quick start: Run 'xiaozhimcp init' for interactive guided setup.
+# This file is a reference showing ALL available options.
+#
+# Minimal config for server role:
+#   [xiaozhi]
+#   endpoint = "wss://api.xiaozhi.me/mcp/?token=YOUR_TOKEN"
+#
+# Minimal config for client role:
+#   [client]
+#   server_url = "ws://your-server-ip:18888/agent"
+#   node_id = "my-pc-01"
+#   client_token = "YOUR_SHARED_TOKEN"
+
+# ---------------------------------------------------------------------------
+# Core: Xiaozhi endpoint connection (REQUIRED for server role)
+# ---------------------------------------------------------------------------
 [xiaozhi]
+# The Xiaozhi MCP WebSocket endpoint with your API token.
+# Get your token from xiaozhi.me.
 endpoint = "wss://api.xiaozhi.me/mcp/?token=replace_with_your_token"
+# Internal: path to the app server script.
 server_script = "app_server.py"
 
-[exa]
-api_key = "replace_with_your_exa_api_key"
-base_url = "https://api.exa.ai"
+# ---------------------------------------------------------------------------
+# Cluster: Let client nodes connect to this server (OPTIONAL, server only)
+# ---------------------------------------------------------------------------
+[cluster]
+# Set to true to accept WebSocket connections from client nodes.
+enabled = false
+# Host and port to listen on for client connections.
+listen_host = "0.0.0.0"
+listen_port = 18888
+# Shared secret token — both server and clients must use the same token.
+client_token = "replace_with_shared_client_token"
 
+# ---------------------------------------------------------------------------
+# Client: Connect this node to a cluster server (REQUIRED for client role)
+# ---------------------------------------------------------------------------
+[client]
+# WebSocket URL of the server (use ws:// for local, wss:// for remote).
+server_url = "ws://your-server-public-ip:18888/agent"
+# Unique name for this machine (e.g. "office-pc", "macbook-pro").
+node_id = "pc-win-01"
+# Must match the cluster.client_token on the server.
+client_token = "replace_with_shared_client_token"
+
+# ---------------------------------------------------------------------------
+# Catalog: Component repository for remote install
+# ---------------------------------------------------------------------------
 [catalog]
+# Git repository containing installable components.
 repo_url = "https://github.com/iiishop/xiaozhiMCP-components.git"
 branch = "main"
 timeout_seconds = 20
 
+# ---------------------------------------------------------------------------
+# Components: Where local components are stored and auto-discovered
+# ---------------------------------------------------------------------------
 [components]
+# Folder for auto-discovered component modules.
+# Components placed here are loaded automatically on startup.
 folder = "components"
 
+# ---------------------------------------------------------------------------
+# Component-specific configuration
+# ---------------------------------------------------------------------------
+# Each component below is auto-discovered from the components/ folder.
+# Enable or configure them by adding the corresponding section.
+
+# --- Exa Web Search (server role) ---
+# REQUIRED: Sign up at https://dashboard.exa.ai to get an API key.
+[exa]
+api_key = "replace_with_your_exa_api_key"
+base_url = "https://api.exa.ai"
+
+# --- LogMCP: Runtime error viewer (server role) ---
+# Optional. Set db_path to persist error history.
 [logmcp]
 db_path = ""
 
-[cluster]
-enabled = false
-listen_host = "0.0.0.0"
-listen_port = 18888
-client_token = "replace_with_shared_client_token"
-
-[client]
-server_url = "ws://your-server-public-ip:18888/agent"
-node_id = "pc-win-01"
-client_token = "replace_with_shared_client_token"
-
-[apple_music]
-# Auto-bootstrap Apple Music MCP (macOS client only).
+# --- Apple Music (macOS client only) ---
+# Auto-bootstrap: clones, installs, and runs the Apple Music MCP bridge.
+[apple_music_macos]
 enabled = true
 install_dir = "~/.xiaozhi/applemusic-mcp"
 update_on_startup = true
+
+# --- Windows-only components (no config needed) ---
+# clipboard:  Clipboard read/write with rich text support
+# windows_manager: Window management (list, focus, close apps)
+
+# --- Cross-platform components (no config needed) ---
+# local_schedule: SQLite-backed calendar/schedule manager

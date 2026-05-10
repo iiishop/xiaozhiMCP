@@ -1,122 +1,132 @@
 # Xiaozhi MCP Node
 
-CLI-first MCP adapter for Xiaozhi with two runtime roles:
+Single-command MCP adapter for Xiaozhi. Two runtime roles from one binary:
 
-- `server`: connects to Xiaozhi endpoint and serves tools
-- `client`: connects to a server over WebSocket and extends server capabilities
+- **server** — connects to Xiaozhi endpoint, serves tools to AI agents
+- **client** — connects to a server over WebSocket, extends it with local tools
 
-Both roles run from the same codebase.
-
-## Install
+## Quick Start
 
 ```bash
+# Install
 uv sync
+
+# Interactive setup (recommended for new users)
+uv run xiaozhimcp init
+
+# Run — auto-detects role and config
+uv run xiaozhimcp
 ```
+
+That's it. No `--role` or `--config` flags needed.
+
+## Usage
+
+```bash
+# Auto-detect role from config
+xiaozhimcp
+
+# Explicit role
+xiaozhimcp server
+xiaozhimcp client
+
+# Use a specific config file
+xiaozhimcp --config /path/to/config.toml
+xiaozhimcp server --config /path/to/config.toml
+```
+
+The CLI auto-finds `config.toml` by checking:
+1. `config.toml` in the current directory
+2. `~/.xiaozhimcp/config.toml`
+
+If neither exists, it tells you to run `xiaozhimcp init`.
 
 ## Configuration
 
-Create config file:
+### Interactive setup (recommended)
+```bash
+xiaozhimcp init
+```
+Walks you through role, endpoint, component selection, and generates a validated `config.toml`.
 
+### Manual setup
 ```bash
 cp config.example.toml config.toml
+# edit config.toml
 ```
 
-Key sections:
+### Key sections
 
-- `[xiaozhi]`: Xiaozhi endpoint and server script for `mcp_router.py`
-- `[cluster]`: server-side WebSocket listener for client nodes
-- `[client]`: client-side connection settings
-- `[components]`: folder path for auto-discovered components
+| Section | Role | Purpose |
+|---------|------|---------|
+| `[xiaozhi]` | server | Xiaozhi endpoint URL + token |
+| `[cluster]` | server | Accept client node connections |
+| `[client]` | client | Connect to a cluster server |
+| `[components]` | both | Folder for auto-discovered components |
 
-Catalog install defaults to the folder configured by `[components].folder` unless `[catalog].install_folder` is explicitly set.
+### Components
 
-Default setup uses `components/` for plug-and-play auto-discovery.
+Components in `components/` are auto-loaded. Each component needs a `[component_name]` section in `config.toml` only if it requires configuration:
+
+| Component | Role | Platform | Needs Config? |
+|-----------|------|----------|----------------|
+| exa | server | all | Yes (API key) |
+| logmcp | server | all | Optional (db_path) |
+| apple_music_macos | client | macOS | Optional |
+| clipboard | client | Windows | No |
+| windows_manager | client | Windows | No |
+| local_schedule | both | all | No |
+
+Run `xiaozhimcp init` to configure each component interactively with explanations.
 
 ## Run as Server
 
-Use the existing Xiaozhi router (server role is default):
-
 ```bash
-uv run start --config config.toml
+xiaozhimcp server
+# or just: xiaozhimcp (auto-detected)
 ```
 
-Or directly:
-
-```bash
-uv run python app_server.py --role server --config config.toml
-```
-
-## Run as Client
-
-On Windows/macOS/Linux client node:
-
-```bash
-uv run python app_server.py --role client --config config.toml
-```
-
-Client will register tools to server using WebSocket (`client.server_url`) and keep reconnecting.
-
-## Built-in tools (server role)
-
+Server tools include:
 - `exa_web_search(...)`
 - `catalog_list_components()`
-- `catalog_search_components(query="", fuzzy=true, readme=false, platform="")`
+- `catalog_search_components(query, fuzzy, readme, platform)`
 - `catalog_describe_component(component_name)`
 - `catalog_get_component_readme(component_name)`
 - `catalog_get_component_platforms(component_name)`
 - `catalog_install_component_to_server(component_name)`
-- `catalog_install_component_to_client(component_name, node_id, mode="client_pull")`
-- `logmcp_get_errors(limit=50)`
+- `catalog_install_component_to_client(component_name, node_id)`
+- `logmcp_get_errors(limit)`
 
-Note: catalog is a core server module in `app_server.py` and works even when `components/` is not tracked.
+## Run as Client
 
-## Components Repository README Rule
+```bash
+xiaozhimcp client
+```
 
-Each MCP folder README in `xiaozhiMCP-components` should end with this exact final line:
+Client registers its local tools to the server and auto-reconnects on disconnect.
 
-`Platforms: Windows|Linux|MacOs`
-
-Examples:
-
-- Cross-platform: `Platforms: Windows|Linux|MacOs`
-- macOS only: `Platforms: MacOs`
-
-## Cluster tools (server role, when `[cluster].enabled=true`)
+## Cluster Tools (server with `[cluster].enabled = true`)
 
 - `cluster_list_clients()`
 - `cluster_list_client_tools(node_id)`
 - `cluster_list_remote_tools()`
-- `cluster_call_remote_tool(tool_name, arguments_json="{}")`
+- `cluster_call_remote_tool(tool_name, arguments_json)`
 
 ## Notes
 
-- Tool names must be globally unique across server + clients.
-- `config.toml` is ignored and should hold secrets/tokens.
-- Logs are plain text and intended for CLI deployment.
+- Tool names must be globally unique across server + all clients.
+- `config.toml` contains secrets/tokens — do not commit it.
+- Logs are plain text for CLI deployment.
 
-## Apple Music auto-bootstrap (macOS only)
+## Apple Music (macOS only)
 
-Built-in component `components/apple_music_macos/component.py` auto-clones and updates `mcp-applemusic` during client component discovery.
-
-Add this section in `config.toml` on your macOS client:
+Add to `config.toml` on your macOS client:
 
 ```toml
-[apple_music]
+[apple_music_macos]
 enabled = true
 install_dir = "~/.xiaozhi/applemusic-mcp"
 update_on_startup = true
 ```
 
-`repo_url`, `branch`, and tool prefix are hardcoded to:
-
-- `https://github.com/epheterson/mcp-applemusic.git`
-- `main`
-- `apple_music_`
-
-When enabled, the macOS bridge component discovery/export phase will:
-
-- clone repo into `install_dir` if missing
-- run `git fetch` + `git pull --ff-only` each startup
-- create venv at `install_dir/venv` if missing
-- run `venv/bin/python -m pip install -e <install_dir>`
-- export tools with `apple_music_` prefix (for example `apple_music_playlist`)
+The bridge auto-clones `epheterson/mcp-applemusic`, creates a venv, and exports tools with `apple_music_` prefix.
