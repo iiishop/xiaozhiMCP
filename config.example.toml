@@ -10,7 +10,7 @@
 #
 # Minimal config for client role:
 #   [client]
-#   server_url = "ws://your-server-ip:18888/agent"
+#   server_url = "ws://SERVER_IP:18888/agent"
 #   node_id = "my-pc-01"
 #   client_token = "YOUR_SHARED_TOKEN"
 
@@ -41,11 +41,11 @@ client_token = "replace_with_shared_client_token"
 # ---------------------------------------------------------------------------
 [client]
 # WebSocket URL of the server (use ws:// for local, wss:// for remote).
-server_url = "ws://your-server-public-ip:18888/agent"
+server_url = ""
 # Unique name for this machine (e.g. "office-pc", "macbook-pro").
-node_id = "pc-win-01"
+node_id = ""
 # Must match the cluster.client_token on the server.
-client_token = "replace_with_shared_client_token"
+client_token = ""
 
 # ---------------------------------------------------------------------------
 # Catalog: Component repository for remote install
@@ -60,15 +60,16 @@ timeout_seconds = 20
 # Components: Where local components are stored and auto-discovered
 # ---------------------------------------------------------------------------
 [components]
-# Folder for auto-discovered component modules.
-# Components placed here are loaded automatically on startup.
+# Built-in and catalog-installed runtime component folder.
+# The node always loads from ./components first, and this setting controls
+# the user folder path that is additionally scanned when different.
 folder = "components"
 
 # ---------------------------------------------------------------------------
 # Component-specific configuration
 # ---------------------------------------------------------------------------
-# Each component below is auto-discovered from the components/ folder.
-# Enable or configure them by adding the corresponding section.
+# Install components via catalog tools (or `xiaozhimcp init`) before enabling
+# their config sections below.
 
 # --- Exa Web Search (server role) ---
 # REQUIRED: Sign up at https://dashboard.exa.ai to get an API key.
@@ -82,7 +83,7 @@ base_url = "https://api.exa.ai"
 db_path = ""
 
 # --- Apple Music (macOS client only) ---
-# Auto-bootstrap: clones, installs, and runs the Apple Music MCP bridge.
+# Requires installing `apple_music_macos` from the catalog first.
 [apple_music_macos]
 enabled = true
 install_dir = "~/.xiaozhi/applemusic-mcp"

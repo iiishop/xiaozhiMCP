@@ -3,9 +3,8 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any
 
-_BUILTIN_COMPONENTS = {
+_CATALOG_COMPONENTS = {
     "exa": {
         "description": "Exa web search (AI-powered neural search)",
         "platforms": ["Windows", "Linux", "MacOs"],
@@ -158,7 +157,7 @@ def _ask_components(role: str) -> list[str]:
     print()
 
     available = []
-    for name, info in _BUILTIN_COMPONENTS.items():
+    for name, info in _CATALOG_COMPONENTS.items():
         if platform not in info["platforms"]:
             continue
         role_ok = info["role"] == "both" or role == "auto" or info["role"] == role
@@ -172,7 +171,7 @@ def _ask_components(role: str) -> list[str]:
 
     print("  Available components for your setup:")
     for name in available:
-        info = _BUILTIN_COMPONENTS[name]
+        info = _CATALOG_COMPONENTS[name]
         print(f"    [{name}] {info['description']}")
         print(f"           {info['config_help']}")
         print()
@@ -188,7 +187,7 @@ def _ask_components(role: str) -> list[str]:
 def _ask_component_config(selected: list[str]) -> dict[str, dict[str, str]]:
     configs: dict[str, dict[str, str]] = {}
     for name in selected:
-        info = _BUILTIN_COMPONENTS[name]
+        info = _CATALOG_COMPONENTS[name]
         defaults = info.get("config_defaults", {})
         if not defaults:
             configs[name] = {}
