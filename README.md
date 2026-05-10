@@ -1,8 +1,8 @@
 # Xiaozhi MCP Node
 
-Single-command MCP adapter for Xiaozhi. Two runtime roles from one binary:
+Single-command MCP node for Xiaozhi. Two runtime roles from one CLI entrypoint:
 
-- **server** — connects to Xiaozhi endpoint, serves tools to AI agents
+- **server** — serves MCP tools over stdio (this is the default process started by `xiaozhimcp`)
 - **client** — connects to a server over WebSocket, extends it with local tools
 
 ## Quick Start
@@ -18,7 +18,7 @@ uv run xiaozhimcp init
 uv run xiaozhimcp
 ```
 
-That's it. No `--role` or `--config` flags needed.
+By default, `xiaozhimcp` launches `app_server.py` and auto-selects `server` or `client` role from config.
 
 ## Usage
 
@@ -55,6 +55,8 @@ cp config.example.toml config.toml
 # edit config.toml
 ```
 
+`config.example.toml` is included in package builds, so this works both from source and after installation.
+
 ### Key sections
 
 | Section | Role | Purpose |
@@ -62,11 +64,11 @@ cp config.example.toml config.toml
 | `[xiaozhi]` | server | Xiaozhi endpoint URL + token |
 | `[cluster]` | server | Accept client node connections |
 | `[client]` | client | Connect to a cluster server |
-| `[components]` | both | Folder for auto-discovered components |
+| `[components]` | both | Additional user component folder (with `components/` always loaded) |
 
 ### Components
 
-`components/` is a runtime cache folder for catalog-installed components. Install components from `xiaozhiMCP-components` first, then they are auto-loaded from `components/` on startup. Each component needs a `[component_name]` section in `config.toml` only if it requires configuration:
+`./components` is always scanned on startup and is the default install target for catalog-installed components. `[components].folder` can point to an additional user folder; when it differs from `components`, both locations are scanned. Each component needs a `[component_name]` section in `config.toml` only if it requires configuration:
 
 | Component | Role | Platform | Needs Config? |
 |-----------|------|----------|----------------|
@@ -86,6 +88,8 @@ xiaozhimcp server
 # or just: xiaozhimcp (auto-detected)
 ```
 
+Implementation detail: this path executes `app_server.py --role server`.
+
 ## Run as Client
 
 ```bash
@@ -93,6 +97,12 @@ xiaozhimcp client
 ```
 
 Client registers its local tools to the server and auto-reconnects on disconnect.
+
+Implementation detail: this path executes `app_server.py --role client`.
+
+## Legacy Router Entry
+
+`mcp_router.py` remains available as a legacy bridge command (`uv run start`) that connects Xiaozhi endpoint <-> local stdio server process. The recommended runtime entrypoint is `xiaozhimcp`.
 
 ## Built-in tools (server role)
 

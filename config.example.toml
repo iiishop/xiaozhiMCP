@@ -10,7 +10,7 @@
 #
 # Minimal config for client role:
 #   [client]
-#   server_url = "ws://your-server-ip:18888/agent"
+#   server_url = "ws://SERVER_IP:18888/agent"
 #   node_id = "my-pc-01"
 #   client_token = "YOUR_SHARED_TOKEN"
 
@@ -41,11 +41,11 @@ client_token = "replace_with_shared_client_token"
 # ---------------------------------------------------------------------------
 [client]
 # WebSocket URL of the server (use ws:// for local, wss:// for remote).
-server_url = "ws://your-server-public-ip:18888/agent"
+server_url = ""
 # Unique name for this machine (e.g. "office-pc", "macbook-pro").
-node_id = "pc-win-01"
+node_id = ""
 # Must match the cluster.client_token on the server.
-client_token = "replace_with_shared_client_token"
+client_token = ""
 
 # ---------------------------------------------------------------------------
 # Catalog: Component repository for remote install
@@ -60,9 +60,9 @@ timeout_seconds = 20
 # Components: Where local components are stored and auto-discovered
 # ---------------------------------------------------------------------------
 [components]
-# Catalog-installed runtime component folder.
-# Components installed from xiaozhiMCP-components are placed here and
-# auto-discovered on startup.
+# Built-in and catalog-installed runtime component folder.
+# The node always loads from ./components first, and this setting controls
+# the user folder path that is additionally scanned when different.
 folder = "components"
 
 # ---------------------------------------------------------------------------

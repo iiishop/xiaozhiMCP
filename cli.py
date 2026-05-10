@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,6 +16,14 @@ DEFAULT_CONFIG_PATHS = [
     str(Path.home() / ".xiaozhimcp" / "config.toml"),
 ]
 
+PLACEHOLDER_MARKERS = (
+    "replace_with",
+    "your-server",
+    "your_server",
+    "your-token",
+    "your_token",
+)
+
 
 def _find_config() -> str | None:
     for path in DEFAULT_CONFIG_PATHS:
@@ -27,10 +33,17 @@ def _find_config() -> str | None:
 
 
 def _detect_role_from_config(config: dict[str, Any]) -> str:
+    def _is_meaningful(value: str) -> bool:
+        stripped = (value or "").strip()
+        if not stripped:
+            return False
+        lowered = stripped.lower()
+        return all(marker not in lowered for marker in PLACEHOLDER_MARKERS)
+
     client_server_url = get_nested_str(config, "client", "server_url")
     client_node_id = get_nested_str(config, "client", "node_id")
     client_token = get_nested_str(config, "client", "client_token")
-    if client_server_url and client_node_id and client_token:
+    if _is_meaningful(client_server_url) and _is_meaningful(client_node_id) and _is_meaningful(client_token):
         return "client"
 
     cluster_enabled = (get_nested_str(config, "cluster", "enabled") or "").lower() in {"1", "true", "yes", "on"}
