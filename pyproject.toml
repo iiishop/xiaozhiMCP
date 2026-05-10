@@ -35,8 +35,6 @@ only-include = [
   "config_loader.py",
   "error_store.py",
   "catalog_core.py",
-  "macos_bridge.py",
-  "components",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -50,8 +48,6 @@ include = [
   "config_loader.py",
   "error_store.py",
   "catalog_core.py",
-  "macos_bridge.py",
-  "components/**/*.py",
   "README.md",
   "pyproject.toml",
 ]
