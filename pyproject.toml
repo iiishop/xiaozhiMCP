@@ -1,7 +1,7 @@
 [project]
 name = "xiaozhi-mcp-router"
 version = "0.1.0"
-description = "Xiaozhi MCP router with Exa component"
+description = "Xiaozhi MCP router with catalog-based component runtime"
 requires-python = ">=3.11"
 dependencies = [
   "fastmcp>=2.0.0",

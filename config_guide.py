@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Any
-
 _CATALOG_COMPONENTS = {
     "exa": {
         "description": "Exa web search (AI-powered neural search)",
@@ -47,13 +45,6 @@ _CATALOG_COMPONENTS = {
         "role": "both",
         "config_help": "No configuration needed. DB is auto-created.",
         "config_defaults": {},
-    },
-    "logmcp": {
-        "description": "Server-side runtime error log viewer",
-        "platforms": ["Windows", "Linux", "MacOs"],
-        "role": "server",
-        "config_help": "Optional: set db_path to persist errors.",
-        "config_defaults": {"db_path": ""},
     },
 }
 
