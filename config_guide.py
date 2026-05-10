@@ -47,13 +47,6 @@ _CATALOG_COMPONENTS = {
         "config_help": "No configuration needed. DB is auto-created.",
         "config_defaults": {},
     },
-    "logmcp": {
-        "description": "Server-side runtime error log viewer",
-        "platforms": ["Windows", "Linux", "MacOs"],
-        "role": "server",
-        "config_help": "Optional: set db_path to persist errors.",
-        "config_defaults": {"db_path": ""},
-    },
 }
 
 

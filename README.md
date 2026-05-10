@@ -73,7 +73,6 @@ cp config.example.toml config.toml
 | Component | Role | Platform | Needs Config? |
 |-----------|------|----------|----------------|
 | exa | server | all | Yes (API key) |
-| logmcp | server | all | Optional (db_path) |
 | apple_music_macos | client | macOS | Optional |
 | clipboard | client | Windows | No |
 | windows_manager | client | Windows | No |
@@ -119,6 +118,8 @@ Core tools registered directly in `app_server.py` — always available regardles
 
 ### Error logging
 - `logmcp_get_errors(limit=50)`
+
+Core error logging config is still read from `[logmcp]` (for example `db_path`) in `config.toml`.
 
 ### Component tools
 

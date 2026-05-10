@@ -66,7 +66,15 @@ timeout_seconds = 20
 folder = "components"
 
 # ---------------------------------------------------------------------------
-# Component-specific configuration
+# Core error logging (server role)
+# ---------------------------------------------------------------------------
+# Built-in tool support: logmcp_get_errors(limit=50)
+# Optional. Set db_path to persist error history.
+[logmcp]
+db_path = ""
+
+# ---------------------------------------------------------------------------
+# Catalog component-specific configuration
 # ---------------------------------------------------------------------------
 # Install components via catalog tools (or `xiaozhimcp init`) before enabling
 # their config sections below.
@@ -76,11 +84,6 @@ folder = "components"
 [exa]
 api_key = "replace_with_your_exa_api_key"
 base_url = "https://api.exa.ai"
-
-# --- LogMCP: Runtime error viewer (server role) ---
-# Optional. Set db_path to persist error history.
-[logmcp]
-db_path = ""
 
 # --- Apple Music (macOS client only) ---
 # Requires installing `apple_music_macos` from the catalog first.
