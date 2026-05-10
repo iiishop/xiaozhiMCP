@@ -161,7 +161,7 @@ def _ask_components(role: str) -> list[str]:
     for name, info in _BUILTIN_COMPONENTS.items():
         if platform not in info["platforms"]:
             continue
-        role_ok = info["role"] == "both" or info["role"] == role
+        role_ok = info["role"] == "both" or role == "auto" or info["role"] == role
         if not role_ok:
             continue
         available.append(name)
@@ -284,7 +284,7 @@ def interactive_setup() -> str | None:
         if use_client:
             client_config = _ask_client_config()
 
-    selected = _ask_components("server" if role == "server" else "client")
+    selected = _ask_components(role)
     comp_configs = _ask_component_config(selected)
 
     toml_content = _generate_toml(role, server_config, client_config, selected, comp_configs)
