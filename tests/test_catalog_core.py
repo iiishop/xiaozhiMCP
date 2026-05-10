@@ -33,6 +33,15 @@ class FakeCatalogCore(CatalogCore):
                 "readme": "README.md",
                 "platforms": ["MacOs"],
             },
+            {
+                "name": "apple_music_macos",
+                "description": "Apple Music control on macOS",
+                "version": "1.0.0",
+                "path": "apple_music_macos",
+                "entry": "component.py",
+                "readme": "README.md",
+                "platforms": ["MacOs"],
+            },
         ]
 
     def _get_text(self, url: str) -> str:
@@ -68,6 +77,18 @@ def test_install_component_writes_entry_readme_and_init(tmp_path):
 
     assert result["success"] is True
     target_dir = tmp_path / "alpha"
+    assert (target_dir / "component.py").read_text(encoding="utf-8") == core.entry_text
+    assert (target_dir / "README.md").read_text(encoding="utf-8") == core.readme_text
+    assert (target_dir / "__init__.py").read_text(encoding="utf-8") == ""
+
+
+def test_install_apple_music_component_uses_runtime_layout(tmp_path):
+    core = FakeCatalogCore(str(tmp_path))
+
+    result = core.install_component("apple_music_macos")
+
+    assert result["success"] is True
+    target_dir = tmp_path / "apple_music_macos"
     assert (target_dir / "component.py").read_text(encoding="utf-8") == core.entry_text
     assert (target_dir / "README.md").read_text(encoding="utf-8") == core.readme_text
     assert (target_dir / "__init__.py").read_text(encoding="utf-8") == ""

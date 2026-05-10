@@ -66,7 +66,7 @@ cp config.example.toml config.toml
 
 ### Components
 
-Components in `components/` are auto-loaded. Each component needs a `[component_name]` section in `config.toml` only if it requires configuration:
+`components/` is a runtime cache folder for catalog-installed components. Install components from `xiaozhiMCP-components` first, then they are auto-loaded from `components/` on startup. Each component needs a `[component_name]` section in `config.toml` only if it requires configuration:
 
 | Component | Role | Platform | Needs Config? |
 |-----------|------|----------|----------------|
@@ -112,7 +112,7 @@ Core tools registered directly in `app_server.py` — always available regardles
 
 ### Component tools
 
-Additional tools are provided by components installed in `components/` (auto-discovered on startup) or via `catalog_install_component_to_server()`. See the [xiaozhiMCP-components](https://github.com/iiishop/xiaozhiMCP-components) repository for available components and their READMEs.
+Additional tools are provided by components installed from catalog into `components/` (auto-discovered on startup) or via `catalog_install_component_to_server()`. See the [xiaozhiMCP-components](https://github.com/iiishop/xiaozhiMCP-components) repository for available components and their READMEs.
 
 ## Components Convention
 
@@ -150,4 +150,4 @@ install_dir = "~/.xiaozhi/applemusic-mcp"
 update_on_startup = true
 ```
 
-The bridge auto-clones `epheterson/mcp-applemusic`, creates a venv, and exports tools with `apple_music_` prefix.
+Before enabling `[apple_music_macos]`, install `apple_music_macos` from catalog (`xiaozhiMCP-components`) using catalog tools or `xiaozhimcp init`.

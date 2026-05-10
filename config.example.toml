@@ -60,15 +60,16 @@ timeout_seconds = 20
 # Components: Where local components are stored and auto-discovered
 # ---------------------------------------------------------------------------
 [components]
-# Folder for auto-discovered component modules.
-# Components placed here are loaded automatically on startup.
+# Catalog-installed runtime component folder.
+# Components installed from xiaozhiMCP-components are placed here and
+# auto-discovered on startup.
 folder = "components"
 
 # ---------------------------------------------------------------------------
 # Component-specific configuration
 # ---------------------------------------------------------------------------
-# Each component below is auto-discovered from the components/ folder.
-# Enable or configure them by adding the corresponding section.
+# Install components via catalog tools (or `xiaozhimcp init`) before enabling
+# their config sections below.
 
 # --- Exa Web Search (server role) ---
 # REQUIRED: Sign up at https://dashboard.exa.ai to get an API key.
@@ -82,7 +83,7 @@ base_url = "https://api.exa.ai"
 db_path = ""
 
 # --- Apple Music (macOS client only) ---
-# Auto-bootstrap: clones, installs, and runs the Apple Music MCP bridge.
+# Requires installing `apple_music_macos` from the catalog first.
 [apple_music_macos]
 enabled = true
 install_dir = "~/.xiaozhi/applemusic-mcp"
