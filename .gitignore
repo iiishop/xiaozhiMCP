@@ -21,8 +21,7 @@ dist/
 .coverage
 htmlcov/
 
-# Project test sources (not tracked)
-tests/
+# Test sources are tracked; ignore only generated caches above.
 
 # IDE/editor files
 .idea/
