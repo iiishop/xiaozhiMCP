@@ -80,6 +80,12 @@ async def run_server(config_path: str) -> None:
     local_tools, _ = collect_exported_tools(components)
     error_store = ErrorStore(get_nested_str(config, "logmcp", "db_path") or None)
 
+    @mcp.tool()
+    def logmcp_get_errors(limit: int = 50) -> dict:
+        """Get recent server-side runtime errors with time and suggested conclusion."""
+        rows = error_store.list_recent(int(limit))
+        return {"success": True, "count": len(rows), "errors": rows}
+
     cluster_enabled = (get_nested_str(config, "cluster", "enabled") or "").lower() in {"1", "true", "yes", "on"}
     cluster_server = None
     if cluster_enabled:

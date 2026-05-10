@@ -86,17 +86,6 @@ xiaozhimcp server
 # or just: xiaozhimcp (auto-detected)
 ```
 
-Server tools include:
-- `exa_web_search(...)`
-- `catalog_list_components()`
-- `catalog_search_components(query, fuzzy, readme, platform)`
-- `catalog_describe_component(component_name)`
-- `catalog_get_component_readme(component_name)`
-- `catalog_get_component_platforms(component_name)`
-- `catalog_install_component_to_server(component_name)`
-- `catalog_install_component_to_client(component_name, node_id)`
-- `logmcp_get_errors(limit)`
-
 ## Run as Client
 
 ```bash
@@ -105,7 +94,39 @@ xiaozhimcp client
 
 Client registers its local tools to the server and auto-reconnects on disconnect.
 
-## Cluster Tools (server with `[cluster].enabled = true`)
+## Built-in tools (server role)
+
+Core tools registered directly in `app_server.py` — always available regardless of installed components:
+
+### Catalog management
+- `catalog_list_components()`
+- `catalog_search_components(query, fuzzy, readme, platform)`
+- `catalog_describe_component(component_name)`
+- `catalog_get_component_readme(component_name)`
+- `catalog_get_component_platforms(component_name)`
+- `catalog_install_component_to_server(component_name)`
+- `catalog_install_component_to_client(component_name, node_id, mode="client_pull")`
+
+### Error logging
+- `logmcp_get_errors(limit=50)`
+
+### Component tools
+
+Additional tools are provided by components installed in `components/` (auto-discovered on startup) or via `catalog_install_component_to_server()`. See the [xiaozhiMCP-components](https://github.com/iiishop/xiaozhiMCP-components) repository for available components and their READMEs.
+
+## Components Convention
+
+Components are defined in the `xiaozhiMCP-components` repository. See its [README](https://github.com/iiishop/xiaozhiMCP-components) for the full component specification.
+
+Each component README must end with:
+
+`Platforms: Windows|Linux|MacOs`
+
+Examples:
+- Cross-platform: `Platforms: Windows|Linux|MacOs`
+- macOS only: `Platforms: MacOs`
+
+## Cluster tools (server role, when `[cluster].enabled=true`)
 
 - `cluster_list_clients()`
 - `cluster_list_client_tools(node_id)`
