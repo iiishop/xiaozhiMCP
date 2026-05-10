@@ -58,7 +58,9 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 
 ## Built-in tools (server role)
 
-- `exa_web_search(...)`
+Core tools registered directly in `app_server.py` — always available regardless of installed components:
+
+### Catalog management
 - `catalog_list_components()`
 - `catalog_search_components(query="", fuzzy=true, readme=false, platform="")`
 - `catalog_describe_component(component_name)`
@@ -66,18 +68,23 @@ Client will register tools to server using WebSocket (`client.server_url`) and k
 - `catalog_get_component_platforms(component_name)`
 - `catalog_install_component_to_server(component_name)`
 - `catalog_install_component_to_client(component_name, node_id, mode="client_pull")`
+
+### Error logging
 - `logmcp_get_errors(limit=50)`
 
-Note: catalog is a core server module in `app_server.py` and works even when `components/` is not tracked.
+### Component tools
 
-## Components Repository README Rule
+Additional tools are provided by components installed in `components/` (auto-discovered on startup) or via `catalog_install_component_to_server()`. See the [xiaozhiMCP-components](https://github.com/iiishop/xiaozhiMCP-components) repository for available components and their READMEs.
 
-Each MCP folder README in `xiaozhiMCP-components` should end with this exact final line:
+## Components Convention
+
+Components are defined in the `xiaozhiMCP-components` repository. See its [README](https://github.com/iiishop/xiaozhiMCP-components) for the full component specification.
+
+Each component README must end with:
 
 `Platforms: Windows|Linux|MacOs`
 
 Examples:
-
 - Cross-platform: `Platforms: Windows|Linux|MacOs`
 - macOS only: `Platforms: MacOs`
 
